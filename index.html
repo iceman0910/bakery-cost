@@ -141,6 +141,22 @@ tr:hover td{background:var(--cream)}
 .confirm-btns{display:flex;gap:8px;justify-content:flex-end}
 .hidden{display:none}
 
+/* 原料標籤 */
+.label-input-wrap{display:flex;gap:8px;margin-top:6px}
+.label-input-wrap input{flex:1}
+.raw-label{display:inline-flex;align-items:center;gap:4px;padding:2px 10px 2px 10px;border-radius:99px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .15s}
+.raw-label.selected{border-color:currentColor}
+.label-colors{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.lc-0{background:#e8f0fb;color:#2563a8}.lc-1{background:#eaf3ee;color:#4a7c59}
+.lc-2{background:#fef3dc;color:#8a5a10}.lc-3{background:#fbeaf0;color:#8a3055}
+.lc-4{background:#f0eafd;color:#6b3fa0}.lc-5{background:#fceaea;color:#b84040}
+.lc-6{background:#e0f5f0;color:#1a7a60}.lc-7{background:#fff3e0;color:#a05a10}
+.td-labels{max-width:180px}
+.td-time{font-size:12px;color:var(--text-hint);white-space:nowrap}
+.raw-filter-labels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.filter-label{cursor:pointer;opacity:.6;transition:opacity .15s}
+.filter-label.on{opacity:1}
+
 /* Responsive */
 @media(max-width:680px){
   .logo-text{font-size:14px}
@@ -227,6 +243,13 @@ tr:hover td{background:var(--cream)}
           <button class="btn-cancel hidden" id="raw-cancel-btn" onclick="cancelRaw()">取消</button>
         </div>
       </div>
+      <div class="form-section-title">標籤（可複選）</div>
+      <div class="label-colors" id="raw-label-presets"></div>
+      <div class="label-input-wrap">
+        <input id="f-raw-label-input" placeholder="自訂標籤名稱，按 Enter 新增">
+        <button class="btn-secondary" onclick="addCustomLabel()">新增</button>
+      </div>
+      <div class="tags-row" id="raw-selected-labels"></div>
     </div>
     <div class="list-header">
       <div class="search-wrap">
@@ -236,6 +259,7 @@ tr:hover td{background:var(--cream)}
       </div>
       <span class="count" id="raw-count"></span>
     </div>
+    <div class="raw-filter-labels" id="raw-filter-labels"></div>
     <div id="raw-list"></div>
   </div>
 
@@ -401,19 +425,89 @@ const db = getFirestore(app)
 window._raw = []
 window._prep = []
 window._fin = []
-window._prepIngs = []   // 備料表單暫存成分
-window._finIngs = []    // 成品表單暫存成分
+window._prepIngs = []
+window._finIngs = []
 window._editRawId = null
 window._editPrepId = null
 window._editFinId = null
 window._confirmCb = null
+window._rawSelectedLabels = []   // 表單暫存標籤
+window._rawFilterLabel = null    // 列表篩選標籤
+
+// 預設標籤清單（顏色對應 lc-0~7）
+const PRESET_LABELS = [
+  {name:'粉類',color:0},{name:'糖＆鹽',color:2},{name:'油脂',color:3},
+  {name:'乳製品',color:1},{name:'蛋',color:7},{name:'酵母',color:4},
+  {name:'堅果',color:6}
+]
+
+function initLabelPresets(){
+  const el=document.getElementById('raw-label-presets')
+  el.innerHTML=PRESET_LABELS.map((l,i)=>
+    `<span class="raw-label lc-${l.color}" data-name="${l.name}" data-color="${l.color}" onclick="togglePresetLabel(this,'${l.name}',${l.color})">${l.name}</span>`
+  ).join('')
+}
+initLabelPresets()
+
+window.togglePresetLabel=(el,name,color)=>{
+  const idx=window._rawSelectedLabels.findIndex(l=>l.name===name)
+  if(idx>=0){ window._rawSelectedLabels.splice(idx,1); el.classList.remove('selected') }
+  else{ window._rawSelectedLabels.push({name,color}); el.classList.add('selected') }
+  renderSelectedLabels()
+}
+
+window.addCustomLabel=()=>{
+  const inp=document.getElementById('f-raw-label-input')
+  const name=inp.value.trim()
+  if(!name)return
+  if(window._rawSelectedLabels.find(l=>l.name===name))return
+  const color=window._rawSelectedLabels.length%8
+  window._rawSelectedLabels.push({name,color})
+  inp.value=''
+  renderSelectedLabels()
+}
+
+document.getElementById('f-raw-label-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();addCustomLabel()} })
+
+function renderSelectedLabels(){
+  document.getElementById('raw-selected-labels').innerHTML=window._rawSelectedLabels.map((l,i)=>
+    `<span class="raw-label lc-${l.color} selected">${l.name}<button class="tag-remove" onclick="removeSelectedLabel(${i})">×</button></span>`
+  ).join('')
+}
+window.removeSelectedLabel=(i)=>{
+  const name=window._rawSelectedLabels[i].name
+  window._rawSelectedLabels.splice(i,1)
+  // 取消 preset 的選取狀態
+  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>{ if(el.dataset.name===name) el.classList.remove('selected') })
+  renderSelectedLabels()
+}
+
+function fmtTime(ts){
+  if(!ts)return '—'
+  const d=ts.toDate?ts.toDate():new Date(ts)
+  const pad=n=>String(n).padStart(2,'0')
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function renderFilterLabels(){
+  // 收集所有現有標籤
+  const allLabels={}
+  window._raw.forEach(r=>(r.labels||[]).forEach(l=>{ allLabels[l.name]=l }))
+  const el=document.getElementById('raw-filter-labels')
+  if(!Object.keys(allLabels).length){ el.innerHTML=''; return }
+  el.innerHTML='<span class="raw-label lc-6 filter-label '+(window._rawFilterLabel===null?'on':'')+'" onclick="setFilterLabel(null)">全部</span>'
+    +Object.values(allLabels).map(l=>
+      `<span class="raw-label lc-${l.color} filter-label ${window._rawFilterLabel===l.name?'on':''}" onclick="setFilterLabel('${l.name}')">${l.name}</span>`
+    ).join('')
+}
+window.setFilterLabel=(name)=>{ window._rawFilterLabel=name; renderFilterLabels(); renderRaw() }
 
 // ===== Firestore Listeners =====
 const qRaw  = query(collection(db,'rawIngredients'), orderBy('createdAt','asc'))
 const qPrep = query(collection(db,'prepItems'),      orderBy('createdAt','asc'))
 const qFin  = query(collection(db,'finishedProducts'),orderBy('createdAt','asc'))
 
-onSnapshot(qRaw,  snap => { window._raw  = snap.docs.map(d=>({id:d.id,...d.data()})); renderRaw();  updateSelects() })
+onSnapshot(qRaw,  snap => { window._raw  = snap.docs.map(d=>({id:d.id,...d.data()})); renderRaw(); renderFilterLabels(); updateSelects() })
 onSnapshot(qPrep, snap => { window._prep = snap.docs.map(d=>({id:d.id,...d.data()})); renderPrep(); updateSelects() })
 onSnapshot(qFin,  snap => { window._fin  = snap.docs.map(d=>({id:d.id,...d.data()})); renderFin() })
 
@@ -504,23 +598,27 @@ function badge(u){
 // ===== RAW PAGE =====
 window.renderRaw=()=>{
   const q=document.getElementById('raw-search').value||''
-  const list=window._raw.filter(r=>!q||r.name?.includes(q))
+  let list=window._raw.filter(r=>!q||r.name?.includes(q))
+  if(window._rawFilterLabel) list=list.filter(r=>(r.labels||[]).some(l=>l.name===window._rawFilterLabel))
   document.getElementById('raw-count').textContent=`${list.length} 筆`
   const el=document.getElementById('raw-list')
   if(!list.length){
-    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🌾</div><p>${q?'找不到符合的原料':'尚無原料，請新增'}</p></div>`
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🌾</div><p>${q||window._rawFilterLabel?'找不到符合的原料':'尚無原料，請新增'}</p></div>`
     return
   }
   el.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>品名</th><th>進貨量</th><th>進貨價格</th><th>單位成本</th><th></th></tr></thead>
+    <thead><tr><th>品名</th><th>標籤</th><th>進貨量</th><th>進貨價格</th><th>單位成本</th><th>建立時間</th><th></th></tr></thead>
     <tbody>${list.map(r=>{
       const cpg=unitCostPerG(r)
       const costStr=r.unit==='個'?`NT$ ${cpg.toFixed(2)}/個`:`NT$ ${(cpg*1000).toFixed(2)}/kg`
+      const labelsHtml=(r.labels||[]).map(l=>`<span class="raw-label lc-${l.color}">${l.name}</span>`).join(' ')
       return `<tr>
         <td class="td-name">${r.name}</td>
+        <td class="td-labels">${labelsHtml||'—'}</td>
         <td>${r.qty} ${badge(r.unit)}</td>
         <td>NT$ ${r.price?.toLocaleString()}</td>
         <td class="td-cost">${costStr}</td>
+        <td class="td-time">${fmtTime(r.createdAt)}</td>
         <td class="td-actions">
           <button class="btn-icon" onclick="editRaw('${r.id}')" title="編輯">✎</button>
           <button class="btn-icon btn-del" onclick="openConfirm('${r.name}',()=>delRaw('${r.id}'))" title="刪除">⌫</button>
@@ -541,7 +639,7 @@ window.submitRaw=async()=>{
   if(!price||price<=0){showErr('f-raw-price-wrap','e-raw-price','請輸入有效價格');ok=false}else hideErr('f-raw-price-wrap','e-raw-price')
   if(!ok)return
   document.getElementById('raw-submit-btn').disabled=true
-  const payload={name,qty,unit,price}
+  const payload={name,qty,unit,price,labels:window._rawSelectedLabels}
   if(window._editRawId){
     await updateDoc(doc(db,'rawIngredients',window._editRawId),payload)
     window._editRawId=null
@@ -560,6 +658,14 @@ window.editRaw=(id)=>{
   document.getElementById('f-raw-qty').value=r.qty
   document.getElementById('f-raw-unit').value=r.unit
   document.getElementById('f-raw-price').value=r.price
+  // 還原標籤
+  window._rawSelectedLabels=[...(r.labels||[])]
+  // 重置 preset 選取狀態
+  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>{
+    const isSelected=window._rawSelectedLabels.some(l=>l.name===el.dataset.name)
+    el.classList.toggle('selected',isSelected)
+  })
+  renderSelectedLabels()
   document.getElementById('raw-form-title').textContent='✏️ 編輯原料'
   document.getElementById('raw-submit-btn').textContent='儲存'
   document.getElementById('raw-cancel-btn').classList.remove('hidden')
@@ -568,6 +674,9 @@ window.cancelRaw=()=>{ window._editRawId=null; clearRawForm() }
 function clearRawForm(){
   ['f-raw-name','f-raw-qty','f-raw-price'].forEach(id=>document.getElementById(id).value='')
   document.getElementById('f-raw-unit').value='kg'
+  window._rawSelectedLabels=[]
+  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>el.classList.remove('selected'))
+  renderSelectedLabels()
   document.getElementById('raw-form-title').textContent='＋ 新增原料'
   document.getElementById('raw-submit-btn').textContent='新增'
   document.getElementById('raw-cancel-btn').classList.add('hidden')
