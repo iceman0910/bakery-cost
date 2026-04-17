@@ -156,15 +156,23 @@ tr:hover td{background:var(--cream)}
 .raw-row.dragging{opacity:.4}
 .raw-row.drag-over td{background:var(--amber-bg)}
 
-/* 已選標籤編輯列 */
-.label-item{display:flex;align-items:center;gap:6px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius-md);padding:4px 8px;cursor:default}
-.label-item.dragging{opacity:.4}
-.label-drag{color:var(--text-hint);cursor:grab;font-size:14px;user-select:none;flex-shrink:0}
+/* 已選標籤列 */
+.selected-labels-bar{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+.btn-manage-labels{height:30px;padding:0 12px;background:transparent;color:var(--brown-md);border:1px solid var(--border-md);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.btn-manage-labels:hover{background:var(--cream2)}
+
+/* 標籤 Modal */
+.label-modal-box{max-width:380px!important}
+.label-modal-title{font-size:16px;font-weight:600;color:var(--brown-dk);margin-bottom:4px}
+.label-modal-desc{font-size:12px;color:var(--text-sec);margin-bottom:12px}
+.modal-label-item{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:var(--radius-sm);user-select:none}
+.modal-label-item:hover{background:var(--cream2)}
+.modal-label-item.dragging{opacity:.4;background:var(--cream2)}
+.label-drag{color:var(--text-hint);cursor:grab;font-size:15px;flex-shrink:0}
 .label-drag:active{cursor:grabbing}
-.label-chip{cursor:default;flex-shrink:0}
-.label-edit-input{height:26px;width:80px;font-size:13px;border:1px solid var(--amber);border-radius:4px;padding:0 6px}
-.label-action-btn{width:24px!important;height:24px!important;font-size:13px!important;flex-shrink:0}
-#raw-selected-labels{gap:6px}
+.label-edit-input{flex:1;height:30px;font-size:13px;border:1px solid var(--border);border-radius:4px;padding:0 8px}
+.label-edit-input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 2px rgba(212,135,42,.15)}
+.label-action-btn{width:26px!important;height:26px!important;font-size:14px!important;flex-shrink:0}
 .td-time{font-size:12px;color:var(--text-hint);white-space:nowrap}
 .raw-filter-labels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .filter-label{cursor:pointer;opacity:.6;transition:opacity .15s}
@@ -262,7 +270,10 @@ tr:hover td{background:var(--cream)}
         <input id="f-raw-label-input" placeholder="自訂標籤名稱，按 Enter 新增">
         <button class="btn-secondary" onclick="addCustomLabel()">新增</button>
       </div>
-      <div class="tags-row" id="raw-selected-labels"></div>
+      <div class="selected-labels-bar">
+        <div class="tags-row" id="raw-selected-labels"></div>
+        <button class="btn-manage-labels hidden" id="btn-manage-labels" onclick="openLabelModal()">管理標籤</button>
+      </div>
     </div>
     <div class="list-header">
       <div class="search-wrap">
@@ -414,6 +425,19 @@ tr:hover td{background:var(--cream)}
   </div>
 </div>
 
+<!-- Label Modal -->
+<div class="confirm-overlay hidden" id="label-modal-overlay" onclick="closeLabelModal()">
+  <div class="confirm-box label-modal-box" onclick="event.stopPropagation()">
+    <div class="label-modal-title">管理已選標籤</div>
+    <p class="label-modal-desc">拖曳調整順序，點名稱改名，按 × 刪除</p>
+    <div id="label-modal-list"></div>
+    <div class="confirm-btns" style="margin-top:1.25rem">
+      <button class="btn-cancel" onclick="closeLabelModal()">取消</button>
+      <button class="btn-primary" onclick="saveLabelModal()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'
@@ -484,58 +508,94 @@ window.addCustomLabel=()=>{
 document.getElementById('f-raw-label-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();addCustomLabel()} })
 
 function renderSelectedLabels(){
+  const labels=window._rawSelectedLabels
   const el=document.getElementById('raw-selected-labels')
-  if(!window._rawSelectedLabels.length){ el.innerHTML=''; return }
-  el.innerHTML=window._rawSelectedLabels.map((l,i)=>`
-    <div class="label-item" draggable="true" data-idx="${i}"
-      ondragstart="onLabelDragStart(event,${i})"
-      ondragover="onLabelDragOver(event)"
-      ondrop="onLabelDrop(event,${i})"
-      ondragend="onLabelDragEnd()">
+  const btn=document.getElementById('btn-manage-labels')
+  if(!labels.length){
+    el.innerHTML=''
+    btn.classList.add('hidden')
+    return
+  }
+  btn.classList.remove('hidden')
+  el.innerHTML=labels.map(l=>
+    `<span class="raw-label lc-${l.color} selected">${l.name}</span>`
+  ).join('')
+}
+
+window.removeSelectedLabel=(i)=>{
+  const name=window._rawSelectedLabels[i].name
+  window._rawSelectedLabels.splice(i,1)
+  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>{
+    if(el.dataset.name===name) el.classList.remove('selected')
+  })
+  renderSelectedLabels()
+}
+
+// ===== Label Modal =====
+let _modalLabels=[]   // modal 內的暫存副本
+let _modalDragIdx=null
+
+window.openLabelModal=()=>{
+  _modalLabels=window._rawSelectedLabels.map(l=>({...l}))
+  renderModalList()
+  document.getElementById('label-modal-overlay').classList.remove('hidden')
+}
+window.closeLabelModal=()=>{
+  document.getElementById('label-modal-overlay').classList.add('hidden')
+}
+window.saveLabelModal=()=>{
+  // 把改好的資料存回去，同時更新 preset 選取狀態
+  window._rawSelectedLabels=_modalLabels.map(l=>({...l}))
+  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>{
+    el.classList.toggle('selected', window._rawSelectedLabels.some(l=>l.name===el.dataset.name))
+  })
+  renderSelectedLabels()
+  closeLabelModal()
+}
+
+function renderModalList(){
+  const el=document.getElementById('label-modal-list')
+  el.innerHTML=_modalLabels.map((l,i)=>`
+    <div class="modal-label-item" draggable="true" data-idx="${i}"
+      ondragstart="onModalLabelDragStart(event,${i})"
+      ondragover="onModalLabelDragOver(event)"
+      ondrop="onModalLabelDrop(event,${i})"
+      ondragend="onModalLabelDragEnd()">
       <span class="label-drag">⠿</span>
-      <span class="raw-label lc-${l.color} selected label-chip">${l.name}</span>
-      <input class="label-edit-input hidden" value="${l.name}" data-idx="${i}"
-        onblur="confirmLabelRename(${i},this.value)"
-        onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')cancelLabelRename(${i},this)">
-      <button class="btn-icon label-action-btn" onclick="startLabelRename(${i})" title="改名">✎</button>
-      <button class="btn-icon btn-del label-action-btn" onclick="removeSelectedLabel(${i})" title="刪除">×</button>
+      <span class="raw-label lc-${l.color}">${l.name}</span>
+      <input class="label-edit-input" value="${l.name}" data-idx="${i}"
+        oninput="updateModalLabelName(${i},this.value)">
+      <button class="btn-icon btn-del label-action-btn" onclick="deleteModalLabel(${i})" title="刪除">×</button>
     </div>`
   ).join('')
 }
 
-// 改名
-window.startLabelRename=(i)=>{
-  const item=document.querySelectorAll('.label-item')[i]
-  item.querySelector('.label-chip').classList.add('hidden')
-  const inp=item.querySelector('.label-edit-input')
-  inp.classList.remove('hidden')
-  inp.focus(); inp.select()
+window.updateModalLabelName=(i,val)=>{
+  _modalLabels[i].name=val
+  // 即時更新左側顯示的 chip
+  const chips=document.querySelectorAll('#label-modal-list .raw-label')
+  if(chips[i]) chips[i].textContent=val||'　'
 }
-window.confirmLabelRename=(i,val)=>{
-  const name=val.trim()
-  if(name&&name!==window._rawSelectedLabels[i].name){
-    window._rawSelectedLabels[i].name=name
-  }
-  renderSelectedLabels()
-}
-window.cancelLabelRename=(i,inp)=>{
-  inp.value=window._rawSelectedLabels[i].name
-  inp.blur()
+window.deleteModalLabel=(i)=>{
+  _modalLabels.splice(i,1)
+  renderModalList()
 }
 
-// 拖曳排序
-let _labelDragIdx=null
-window.onLabelDragStart=(e,i)=>{ _labelDragIdx=i; setTimeout(()=>e.target.classList.add('dragging'),0) }
-window.onLabelDragOver=(e)=>{ e.preventDefault() }
-window.onLabelDragEnd=()=>{ document.querySelectorAll('.label-item').forEach(el=>el.classList.remove('dragging')) }
-window.onLabelDrop=(e,toIdx)=>{
+window.onModalLabelDragStart=(e,i)=>{
+  _modalDragIdx=i
+  setTimeout(()=>e.target.classList.add('dragging'),0)
+}
+window.onModalLabelDragOver=(e)=>{ e.preventDefault() }
+window.onModalLabelDragEnd=()=>{
+  document.querySelectorAll('.modal-label-item').forEach(el=>el.classList.remove('dragging'))
+}
+window.onModalLabelDrop=(e,toIdx)=>{
   e.preventDefault()
-  if(_labelDragIdx===null||_labelDragIdx===toIdx)return
-  const arr=window._rawSelectedLabels
-  const [moved]=arr.splice(_labelDragIdx,1)
-  arr.splice(toIdx,0,moved)
-  _labelDragIdx=null
-  renderSelectedLabels()
+  if(_modalDragIdx===null||_modalDragIdx===toIdx)return
+  const [moved]=_modalLabels.splice(_modalDragIdx,1)
+  _modalLabels.splice(toIdx,0,moved)
+  _modalDragIdx=null
+  renderModalList()
 }
 window.removeSelectedLabel=(i)=>{
   const name=window._rawSelectedLabels[i].name
