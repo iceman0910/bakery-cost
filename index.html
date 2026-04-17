@@ -507,13 +507,26 @@ function renderFilterLabels(){
 window.setFilterLabel=(name)=>{ window._rawFilterLabel=name; renderFilterLabels(); renderRaw() }
 
 // ===== Firestore Listeners =====
-// 注意：rawIngredients 改用 sortOrder 排序後，需在 Firebase Console 建立索引
-// 或直接在 Firestore > Indexes 新增：Collection=rawIngredients, Field=sortOrder asc
-const qRaw  = query(collection(db,'rawIngredients'), orderBy('sortOrder','asc'))
+const qRaw  = query(collection(db,'rawIngredients'), orderBy('createdAt','asc'))
 const qPrep = query(collection(db,'prepItems'),      orderBy('createdAt','asc'))
 const qFin  = query(collection(db,'finishedProducts'),orderBy('createdAt','asc'))
 
-onSnapshot(qRaw,  snap => { window._raw  = snap.docs.map(d=>({id:d.id,...d.data()})); renderRaw(); renderFilterLabels(); updateSelects() })
+onSnapshot(qRaw, snap => {
+  let docs=snap.docs.map(d=>({id:d.id,...d.data()}))
+  // 有 sortOrder 的照 sortOrder 排，沒有的照 createdAt 排在後面
+  docs.sort((a,b)=>{
+    const ha=a.sortOrder!=null, hb=b.sortOrder!=null
+    if(ha&&hb) return a.sortOrder-b.sortOrder
+    if(ha) return -1
+    if(hb) return 1
+    // 兩個都沒有 sortOrder，用 createdAt
+    const ta=a.createdAt?.toMillis?.()||0
+    const tb=b.createdAt?.toMillis?.()||0
+    return ta-tb
+  })
+  window._raw=docs
+  renderRaw(); renderFilterLabels(); updateSelects()
+})
 onSnapshot(qPrep, snap => { window._prep = snap.docs.map(d=>({id:d.id,...d.data()})); renderPrep(); updateSelects() })
 onSnapshot(qFin,  snap => { window._fin  = snap.docs.map(d=>({id:d.id,...d.data()})); renderFin() })
 
