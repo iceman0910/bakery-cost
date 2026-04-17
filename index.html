@@ -155,6 +155,16 @@ tr:hover td{background:var(--cream)}
 .td-drag:active{cursor:grabbing}
 .raw-row.dragging{opacity:.4}
 .raw-row.drag-over td{background:var(--amber-bg)}
+
+/* 已選標籤編輯列 */
+.label-item{display:flex;align-items:center;gap:6px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius-md);padding:4px 8px;cursor:default}
+.label-item.dragging{opacity:.4}
+.label-drag{color:var(--text-hint);cursor:grab;font-size:14px;user-select:none;flex-shrink:0}
+.label-drag:active{cursor:grabbing}
+.label-chip{cursor:default;flex-shrink:0}
+.label-edit-input{height:26px;width:80px;font-size:13px;border:1px solid var(--amber);border-radius:4px;padding:0 6px}
+.label-action-btn{width:24px!important;height:24px!important;font-size:13px!important;flex-shrink:0}
+#raw-selected-labels{gap:6px}
 .td-time{font-size:12px;color:var(--text-hint);white-space:nowrap}
 .raw-filter-labels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .filter-label{cursor:pointer;opacity:.6;transition:opacity .15s}
@@ -474,9 +484,58 @@ window.addCustomLabel=()=>{
 document.getElementById('f-raw-label-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();addCustomLabel()} })
 
 function renderSelectedLabels(){
-  document.getElementById('raw-selected-labels').innerHTML=window._rawSelectedLabels.map((l,i)=>
-    `<span class="raw-label lc-${l.color} selected">${l.name}<button class="tag-remove" onclick="removeSelectedLabel(${i})">×</button></span>`
+  const el=document.getElementById('raw-selected-labels')
+  if(!window._rawSelectedLabels.length){ el.innerHTML=''; return }
+  el.innerHTML=window._rawSelectedLabels.map((l,i)=>`
+    <div class="label-item" draggable="true" data-idx="${i}"
+      ondragstart="onLabelDragStart(event,${i})"
+      ondragover="onLabelDragOver(event)"
+      ondrop="onLabelDrop(event,${i})"
+      ondragend="onLabelDragEnd()">
+      <span class="label-drag">⠿</span>
+      <span class="raw-label lc-${l.color} selected label-chip">${l.name}</span>
+      <input class="label-edit-input hidden" value="${l.name}" data-idx="${i}"
+        onblur="confirmLabelRename(${i},this.value)"
+        onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')cancelLabelRename(${i},this)">
+      <button class="btn-icon label-action-btn" onclick="startLabelRename(${i})" title="改名">✎</button>
+      <button class="btn-icon btn-del label-action-btn" onclick="removeSelectedLabel(${i})" title="刪除">×</button>
+    </div>`
   ).join('')
+}
+
+// 改名
+window.startLabelRename=(i)=>{
+  const item=document.querySelectorAll('.label-item')[i]
+  item.querySelector('.label-chip').classList.add('hidden')
+  const inp=item.querySelector('.label-edit-input')
+  inp.classList.remove('hidden')
+  inp.focus(); inp.select()
+}
+window.confirmLabelRename=(i,val)=>{
+  const name=val.trim()
+  if(name&&name!==window._rawSelectedLabels[i].name){
+    window._rawSelectedLabels[i].name=name
+  }
+  renderSelectedLabels()
+}
+window.cancelLabelRename=(i,inp)=>{
+  inp.value=window._rawSelectedLabels[i].name
+  inp.blur()
+}
+
+// 拖曳排序
+let _labelDragIdx=null
+window.onLabelDragStart=(e,i)=>{ _labelDragIdx=i; setTimeout(()=>e.target.classList.add('dragging'),0) }
+window.onLabelDragOver=(e)=>{ e.preventDefault() }
+window.onLabelDragEnd=()=>{ document.querySelectorAll('.label-item').forEach(el=>el.classList.remove('dragging')) }
+window.onLabelDrop=(e,toIdx)=>{
+  e.preventDefault()
+  if(_labelDragIdx===null||_labelDragIdx===toIdx)return
+  const arr=window._rawSelectedLabels
+  const [moved]=arr.splice(_labelDragIdx,1)
+  arr.splice(toIdx,0,moved)
+  _labelDragIdx=null
+  renderSelectedLabels()
 }
 window.removeSelectedLabel=(i)=>{
   const name=window._rawSelectedLabels[i].name
