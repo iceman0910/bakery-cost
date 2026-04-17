@@ -1,14 +1,826 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>烘焙成本計算</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>烘焙成本計算</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cream:#fdf8f2;--cream2:#f5ede0;--cream3:#ede0cc;
+  --brown-dk:#3d2b1f;--brown-md:#7a4f35;--brown-lt:#b07d55;
+  --amber:#d4872a;--amber-lt:#f5d49a;--amber-bg:#fef3dc;
+  --green:#4a7c59;--green-bg:#eaf3ee;
+  --red:#b84040;--red-bg:#fceaea;
+  --blue:#2563a8;--blue-bg:#e8f0fb;
+  --border:#e2d3c0;--border-md:#c9b89f;
+  --text-pri:#2d1e14;--text-sec:#7a6050;--text-hint:#b09880;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:14px;
+  --shadow:0 1px 3px rgba(61,43,31,.08);
+  --shadow-md:0 4px 12px rgba(61,43,31,.12);
+}
+body{font-family:'Noto Sans TC',system-ui,sans-serif;background:var(--cream);color:var(--text-pri);font-size:15px;line-height:1.6;min-height:100vh}
+
+/* Header */
+.header{background:var(--brown-dk);position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.header-inner{max-width:960px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;gap:1.5rem;height:56px}
+.logo{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.logo-icon{font-size:22px}
+.logo-text{font-size:16px;font-weight:600;color:var(--amber-lt);letter-spacing:.02em}
+.nav{display:flex;gap:4px;flex:1}
+.nav-btn{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius-md);border:none;background:transparent;color:rgba(255,255,255,.65);font-size:14px;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.nav-btn.active{background:var(--amber);color:#fff;font-weight:500}
+.nav-icon{font-size:16px}
+
+/* Main */
+.main{max-width:960px;margin:0 auto;width:100%;padding:1.5rem 1rem 3rem}
+.page{display:none}.page.active{display:block}
+.page-header{margin-bottom:1.25rem}
+.page-header h2{font-size:20px;font-weight:600;color:var(--brown-dk)}
+.page-desc{font-size:13px;color:var(--text-sec);margin-top:2px}
+
+/* Form */
+.form-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem;box-shadow:var(--shadow)}
+.form-title{font-size:14px;font-weight:500;color:var(--text-sec);margin-bottom:1rem}
+.form-grid{display:grid;gap:10px}
+.g-raw{grid-template-columns:2fr 1fr 1fr 1.2fr auto}
+.g-prep{grid-template-columns:2fr 1fr 1fr}
+.g-fin{grid-template-columns:2fr 1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--text-sec);font-weight:500}
+.field.err input,.field.err select{border-color:var(--red)}
+.err-msg{font-size:11px;color:var(--red)}
+input,select{height:38px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 10px;font-size:14px;font-family:inherit;color:var(--text-pri);background:#fff;transition:border-color .15s,box-shadow .15s;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 3px rgba(212,135,42,.15)}
+input::placeholder{color:var(--text-hint)}
+.form-section-title{font-size:12px;font-weight:500;color:var(--text-sec);margin:1rem 0 6px}
+.ing-add-row{display:flex;gap:8px;align-items:center}
+.ing-add-row select{flex:2}.ing-add-row input{flex:1}
+.ing-section-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:4px}
+.tags-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.form-actions{display:flex;gap:8px;align-items:flex-end}
+.form-footer{display:flex;gap:8px;margin-top:1rem}
+
+/* Cost preview */
+.cost-preview{display:flex;align-items:center;gap:16px;background:var(--amber-bg);border:1px solid var(--amber-lt);border-radius:var(--radius-md);padding:10px 14px;margin-top:12px;font-size:14px}
+.cost-preview strong{font-weight:600;color:var(--amber)}
+.cost-perunit{font-size:12px;color:var(--text-sec)}
+.cost-preview-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+.cost-preview-item{flex:1;min-width:100px;background:var(--cream2);border-radius:var(--radius-md);padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+.cost-preview-item span{font-size:12px;color:var(--text-sec)}
+.cost-preview-item strong{font-size:16px;font-weight:600;color:var(--brown-dk)}
+.preview-good strong{color:var(--green)}
+.preview-bad strong{color:var(--red)}
+
+/* Buttons */
+.btn-primary{height:38px;padding:0 20px;background:var(--amber);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-family:inherit;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-primary:hover{background:var(--brown-md)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed}
+.btn-secondary{height:38px;padding:0 16px;background:var(--cream2);color:var(--brown-dk);border:1px solid var(--border-md);border-radius:var(--radius-sm);font-size:14px;font-family:inherit;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-secondary:hover{background:var(--cream3)}
+.btn-cancel{height:38px;padding:0 16px;background:transparent;color:var(--text-sec);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:inherit;cursor:pointer;transition:all .15s}
+.btn-cancel:hover{background:var(--cream2)}
+.btn-icon{width:30px;height:30px;background:transparent;color:var(--text-hint);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:15px;display:inline-flex;align-items:center;justify-content:center;transition:all .15s}
+.btn-icon:hover{background:var(--cream2);color:var(--brown-md)}
+.btn-del:hover{background:var(--red-bg)!important;color:var(--red)!important;border-color:#e8a0a0!important}
+.btn-danger{height:38px;padding:0 20px;background:var(--red);color:#fff;border:none;border-radius:var(--radius-sm);font-size:14px;font-family:inherit;font-weight:500;cursor:pointer}
+.btn-danger:hover{background:#962e2e}
+
+/* Tags & Badges */
+.tag{display:inline-flex;align-items:center;gap:6px;background:var(--cream2);border:1px solid var(--border);border-radius:99px;padding:3px 10px 3px 12px;font-size:13px;color:var(--brown-dk)}
+.tag-remove{background:none;border:none;cursor:pointer;color:var(--text-hint);font-size:16px;line-height:1;padding:0;transition:color .1s}
+.tag-remove:hover{color:var(--red)}
+.badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:99px;font-weight:500;font-family:'DM Mono',monospace}
+.badge-blue{background:var(--blue-bg);color:var(--blue)}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-amber{background:var(--amber-bg);color:#8a5a10}
+.badge-pink{background:#fbeaf0;color:#8a3055}
+.badge-gray{background:var(--cream2);color:var(--text-sec)}
+
+/* Search & List */
+.list-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.count{font-size:13px;color:var(--text-hint);white-space:nowrap}
+.search-wrap{position:relative;flex:1}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-hint);font-size:18px;pointer-events:none}
+.search-input{padding-left:34px!important}
+.search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-hint);font-size:18px;line-height:1;padding:0}
+.search-clear:hover{color:var(--text-pri)}
+
+/* Table */
+.table-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:#fff;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{background:var(--cream2);padding:10px 12px;text-align:left;font-size:12px;font-weight:500;color:var(--text-sec);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text-pri);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--cream)}
+.td-name{font-weight:500}
+.td-cost{font-weight:500;color:var(--amber);font-family:'DM Mono',monospace;font-size:13px}
+.td-actions{display:flex;gap:6px;align-items:center}
+.td-ings{max-width:200px}
+.ing-chip{display:inline-block;background:var(--cream2);border-radius:4px;padding:1px 6px;font-size:12px;color:var(--text-sec);margin:1px 2px}
+.ing-chip-prep{background:var(--amber-bg);color:#7a4f18}
+.margin-good{color:var(--green);font-weight:500}
+.margin-bad{color:var(--red);font-weight:500}
+
+/* Empty / Loading */
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--text-hint)}
+.empty-icon{font-size:40px;margin-bottom:8px}
+.empty-state p{font-size:14px}
+.loading{display:flex;align-items:center;gap:10px;padding:2rem;color:var(--text-sec);justify-content:center}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Confirm Dialog */
+.confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:999;padding:1rem}
+.confirm-box{background:#fff;border-radius:var(--radius-lg);padding:1.5rem;max-width:320px;width:100%;box-shadow:var(--shadow-md)}
+.confirm-box p{font-size:15px;margin-bottom:1.25rem;color:var(--text-pri)}
+.confirm-box strong{color:var(--brown-dk)}
+.confirm-btns{display:flex;gap:8px;justify-content:flex-end}
+.hidden{display:none}
+
+/* Responsive */
+@media(max-width:680px){
+  .logo-text{font-size:14px}
+  .nav-btn{padding:5px 10px;font-size:13px}
+  .nav-label{display:none}
+  .nav-icon{font-size:20px}
+  .g-raw{grid-template-columns:1fr 1fr}
+  .g-raw>*:first-child{grid-column:span 2}
+  .g-raw>.form-actions{grid-column:span 2}
+  .g-prep,.g-fin{grid-template-columns:1fr 1fr}
+  .g-fin>*:first-child{grid-column:span 2}
+  .ing-section-grid{grid-template-columns:1fr}
+  table{font-size:13px}
+  th,td{padding:8px 8px}
+  .td-ings{max-width:120px}
+  .cost-preview-row{flex-direction:column}
+}
+@media(max-width:420px){
+  .main{padding:1rem .75rem 2rem}
+  .form-card{padding:1rem}
+  .g-raw,.g-prep,.g-fin{grid-template-columns:1fr}
+  .g-raw>*:first-child,.g-fin>*:first-child{grid-column:auto}
+  .g-raw>.form-actions{grid-column:auto}
+  .ing-add-row{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-icon">🥐</span>
+      <span class="logo-text">烘焙成本計算</span>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn active" onclick="showPage('raw',this)">
+        <span class="nav-icon">🌾</span><span class="nav-label">原料食材</span>
+      </button>
+      <button class="nav-btn" onclick="showPage('prep',this)">
+        <span class="nav-icon">🥣</span><span class="nav-label">備料食材</span>
+      </button>
+      <button class="nav-btn" onclick="showPage('finished',this)">
+        <span class="nav-icon">🍞</span><span class="nav-label">成品成本</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- ===== PAGE: 原料食材 ===== -->
+  <div id="page-raw" class="page active">
+    <div class="page-header">
+      <h2>原料食材</h2>
+      <p class="page-desc">記錄每種原料的進貨量與價格，系統自動計算單位成本</p>
+    </div>
+    <div class="form-card">
+      <div class="form-title" id="raw-form-title">＋ 新增原料</div>
+      <div class="form-grid g-raw">
+        <div class="field" id="f-raw-name-wrap">
+          <label>原料品名</label>
+          <input id="f-raw-name" placeholder="例：高筋麵粉">
+          <span class="err-msg hidden" id="e-raw-name"></span>
+        </div>
+        <div class="field" id="f-raw-qty-wrap">
+          <label>進貨量</label>
+          <input id="f-raw-qty" type="number" placeholder="25" min="0">
+          <span class="err-msg hidden" id="e-raw-qty"></span>
+        </div>
+        <div class="field">
+          <label>單位</label>
+          <select id="f-raw-unit">
+            <option>kg</option><option>g</option><option>cc</option><option>個</option>
+          </select>
+        </div>
+        <div class="field" id="f-raw-price-wrap">
+          <label>進貨價格 (NT$)</label>
+          <input id="f-raw-price" type="number" placeholder="450" min="0">
+          <span class="err-msg hidden" id="e-raw-price"></span>
+        </div>
+        <div class="field form-actions">
+          <button class="btn-primary" id="raw-submit-btn" onclick="submitRaw()">新增</button>
+          <button class="btn-cancel hidden" id="raw-cancel-btn" onclick="cancelRaw()">取消</button>
+        </div>
+      </div>
+    </div>
+    <div class="list-header">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input class="search-input" id="raw-search" placeholder="搜尋原料品名..." oninput="renderRaw()">
+        <button class="search-clear hidden" id="raw-search-clear" onclick="clearSearch('raw-search','raw-search-clear');renderRaw()">×</button>
+      </div>
+      <span class="count" id="raw-count"></span>
+    </div>
+    <div id="raw-list"></div>
+  </div>
+
+  <!-- ===== PAGE: 備料食材 ===== -->
+  <div id="page-prep" class="page">
+    <div class="page-header">
+      <h2>備料食材</h2>
+      <p class="page-desc">記錄麵糰、餡料等備料的成分組成，計算每克成本</p>
+    </div>
+    <div class="form-card">
+      <div class="form-title" id="prep-form-title">＋ 新增備料</div>
+      <div class="form-grid g-prep">
+        <div class="field" id="f-prep-name-wrap">
+          <label>備料名稱</label>
+          <input id="f-prep-name" placeholder="例：吐司麵糰">
+          <span class="err-msg hidden" id="e-prep-name"></span>
+        </div>
+        <div class="field" id="f-prep-total-wrap">
+          <label>做出總重量 (g)</label>
+          <input id="f-prep-total" type="number" placeholder="1200" min="0" oninput="updatePrepPreview()">
+          <span class="err-msg hidden" id="e-prep-total"></span>
+        </div>
+        <div class="field">
+          <label>份數</label>
+          <input id="f-prep-servings" type="number" placeholder="1" min="1" value="1">
+        </div>
+      </div>
+      <div class="form-section-title">使用的原料</div>
+      <div class="ing-add-row">
+        <select id="prep-ing-sel"></select>
+        <input id="prep-ing-amt" type="number" placeholder="用量(g / 個)" min="0">
+        <button class="btn-secondary" onclick="addPrepIng()">加入</button>
+      </div>
+      <div class="tags-row" id="prep-tags"></div>
+      <div id="prep-preview" class="cost-preview hidden">
+        <span>預估食材成本：</span>
+        <strong id="prep-preview-cost"></strong>
+        <span class="cost-perunit" id="prep-preview-cpg"></span>
+      </div>
+      <div class="form-footer">
+        <button class="btn-primary" id="prep-submit-btn" onclick="submitPrep()">新增</button>
+        <button class="btn-cancel hidden" id="prep-cancel-btn" onclick="cancelPrep()">取消</button>
+      </div>
+    </div>
+    <div class="list-header">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input class="search-input" id="prep-search" placeholder="搜尋備料名稱..." oninput="renderPrep()">
+        <button class="search-clear hidden" id="prep-search-clear" onclick="clearSearch('prep-search','prep-search-clear');renderPrep()">×</button>
+      </div>
+      <span class="count" id="prep-count"></span>
+    </div>
+    <div id="prep-list"></div>
+  </div>
+
+  <!-- ===== PAGE: 成品成本 ===== -->
+  <div id="page-finished" class="page">
+    <div class="page-header">
+      <h2>成品成本</h2>
+      <p class="page-desc">組合原料與備料，計算成品成本與毛利率</p>
+    </div>
+    <div class="form-card">
+      <div class="form-title" id="fin-form-title">＋ 新增成品</div>
+      <div class="form-grid g-fin">
+        <div class="field" id="f-fin-name-wrap">
+          <label>成品名稱</label>
+          <input id="f-fin-name" placeholder="例：鮮奶吐司">
+          <span class="err-msg hidden" id="e-fin-name"></span>
+        </div>
+        <div class="field">
+          <label>預計售價 (NT$)</label>
+          <input id="f-fin-price" type="number" placeholder="120" min="0" oninput="updateFinPreview()">
+        </div>
+        <div class="field">
+          <label>製作數量</label>
+          <input id="f-fin-qty" type="number" placeholder="1" min="1" value="1" oninput="updateFinPreview()">
+        </div>
+        <div class="field">
+          <label>目標毛利率 (%)</label>
+          <input id="f-fin-margin" type="number" placeholder="60" min="0" max="100" value="60" oninput="updateFinPreview()">
+        </div>
+      </div>
+      <div class="ing-section-grid">
+        <div>
+          <div class="form-section-title">加入原料</div>
+          <div class="ing-add-row">
+            <select id="fin-raw-sel"></select>
+            <input id="fin-raw-amt" type="number" placeholder="用量(g / 個)" min="0">
+            <button class="btn-secondary" onclick="addFinRaw()">加入</button>
+          </div>
+        </div>
+        <div>
+          <div class="form-section-title">加入備料</div>
+          <div class="ing-add-row">
+            <select id="fin-prep-sel"></select>
+            <input id="fin-prep-amt" type="number" placeholder="用量(g)" min="0">
+            <button class="btn-secondary" onclick="addFinPrep()">加入</button>
+          </div>
+        </div>
+      </div>
+      <div class="tags-row" id="fin-tags"></div>
+      <div id="fin-preview-row" class="cost-preview-row hidden">
+        <div class="cost-preview-item">
+          <span>食材成本</span><strong id="fin-prev-cost"></strong>
+        </div>
+        <div class="cost-preview-item" id="fin-prev-margin-wrap">
+          <span>毛利率</span><strong id="fin-prev-margin"></strong>
+        </div>
+        <div class="cost-preview-item">
+          <span>建議售價</span><strong id="fin-prev-suggest"></strong>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn-primary" id="fin-submit-btn" onclick="submitFin()">新增</button>
+        <button class="btn-cancel hidden" id="fin-cancel-btn" onclick="cancelFin()">取消</button>
+      </div>
+    </div>
+    <div class="list-header">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input class="search-input" id="fin-search" placeholder="搜尋成品名稱..." oninput="renderFin()">
+        <button class="search-clear hidden" id="fin-search-clear" onclick="clearSearch('fin-search','fin-search-clear');renderFin()">×</button>
+      </div>
+      <span class="count" id="fin-count"></span>
+    </div>
+    <div id="fin-list"></div>
+  </div>
+
+</main>
+
+<!-- Confirm Dialog -->
+<div class="confirm-overlay hidden" id="confirm-overlay" onclick="closeConfirm()">
+  <div class="confirm-box" onclick="event.stopPropagation()">
+    <p>確定要刪除「<strong id="confirm-name"></strong>」嗎？</p>
+    <div class="confirm-btns">
+      <button class="btn-cancel" onclick="closeConfirm()">取消</button>
+      <button class="btn-danger" onclick="doConfirm()">刪除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'
+import {
+  getFirestore, collection, onSnapshot, addDoc, updateDoc,
+  deleteDoc, doc, serverTimestamp, query, orderBy
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBdohEN4PBAj3-Wcmsae4pwZNUrCyuQw04",
+  authDomain: "bakery-cost.firebaseapp.com",
+  projectId: "bakery-cost",
+  storageBucket: "bakery-cost.firebasestorage.app",
+  messagingSenderId: "32199948544",
+  appId: "1:32199948544:web:65776afccbd4b30a045be5"
+}
+
+const app = initializeApp(firebaseConfig)
+const db = getFirestore(app)
+
+// ===== State =====
+window._raw = []
+window._prep = []
+window._fin = []
+window._prepIngs = []   // 備料表單暫存成分
+window._finIngs = []    // 成品表單暫存成分
+window._editRawId = null
+window._editPrepId = null
+window._editFinId = null
+window._confirmCb = null
+
+// ===== Firestore Listeners =====
+const qRaw  = query(collection(db,'rawIngredients'), orderBy('createdAt','asc'))
+const qPrep = query(collection(db,'prepItems'),      orderBy('createdAt','asc'))
+const qFin  = query(collection(db,'finishedProducts'),orderBy('createdAt','asc'))
+
+onSnapshot(qRaw,  snap => { window._raw  = snap.docs.map(d=>({id:d.id,...d.data()})); renderRaw();  updateSelects() })
+onSnapshot(qPrep, snap => { window._prep = snap.docs.map(d=>({id:d.id,...d.data()})); renderPrep(); updateSelects() })
+onSnapshot(qFin,  snap => { window._fin  = snap.docs.map(d=>({id:d.id,...d.data()})); renderFin() })
+
+// ===== Calc =====
+function unitCostPerG(raw){
+  const {qty,unit,price}=raw
+  if(!qty||!price)return 0
+  if(unit==='kg') return price/(qty*1000)
+  return price/qty
+}
+function calcPrepCost(ings){
+  return (ings||[]).reduce((s,i)=>{
+    const r=window._raw.find(x=>x.id===i.rawId)
+    return r ? s+unitCostPerG(r)*i.amount : s
+  },0)
+}
+function calcPrepCostPerG(prep){
+  const cost=calcPrepCost(prep.ingredients)
+  return prep.totalWeight>0 ? cost/prep.totalWeight : 0
+}
+function calcFinCost(ings){
+  return (ings||[]).reduce((s,i)=>{
+    if(i.type==='raw'){
+      const r=window._raw.find(x=>x.id===i.refId)
+      return r ? s+unitCostPerG(r)*i.amount : s
+    }
+    if(i.type==='prep'){
+      const p=window._prep.find(x=>x.id===i.refId)
+      return p ? s+calcPrepCostPerG(p)*i.amount : s
+    }
+    return s
+  },0)
+}
+
+// ===== Expose globals =====
+window.unitCostPerG=unitCostPerG
+window.calcPrepCost=calcPrepCost
+window.calcPrepCostPerG=calcPrepCostPerG
+window.calcFinCost=calcFinCost
+
+// ===== Page Nav =====
+window.showPage=(id,btn)=>{
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'))
+  document.getElementById('page-'+id).classList.add('active')
+  btn.classList.add('active')
+}
+
+// ===== Search helpers =====
+window.clearSearch=(inputId,clearId)=>{
+  document.getElementById(inputId).value=''
+  document.getElementById(clearId).classList.add('hidden')
+}
+function bindSearchClear(inputId,clearId){
+  document.getElementById(inputId).addEventListener('input',function(){
+    document.getElementById(clearId).classList.toggle('hidden',!this.value)
+  })
+}
+bindSearchClear('raw-search','raw-search-clear')
+bindSearchClear('prep-search','prep-search-clear')
+bindSearchClear('fin-search','fin-search-clear')
+
+// ===== Confirm Dialog =====
+window.openConfirm=(name,cb)=>{
+  document.getElementById('confirm-name').textContent=name
+  document.getElementById('confirm-overlay').classList.remove('hidden')
+  window._confirmCb=cb
+}
+window.closeConfirm=()=>document.getElementById('confirm-overlay').classList.add('hidden')
+window.doConfirm=()=>{ window._confirmCb&&window._confirmCb(); closeConfirm() }
+
+// ===== Selects =====
+window.updateSelects=()=>{
+  const prepIngSel=document.getElementById('prep-ing-sel')
+  const finRawSel=document.getElementById('fin-raw-sel')
+  const finPrepSel=document.getElementById('fin-prep-sel')
+  prepIngSel.innerHTML=window._raw.map(r=>`<option value="${r.id}">${r.name} (${r.unit})</option>`).join('')
+  finRawSel.innerHTML=window._raw.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')
+  finPrepSel.innerHTML=window._prep.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')
+}
+
+// ===== Badge =====
+function badge(u){
+  const cls={kg:'badge-blue',g:'badge-green',cc:'badge-amber','個':'badge-pink'}
+  return `<span class="badge ${cls[u]||'badge-gray'}">${u}</span>`
+}
+
+// ===== RAW PAGE =====
+window.renderRaw=()=>{
+  const q=document.getElementById('raw-search').value||''
+  const list=window._raw.filter(r=>!q||r.name?.includes(q))
+  document.getElementById('raw-count').textContent=`${list.length} 筆`
+  const el=document.getElementById('raw-list')
+  if(!list.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🌾</div><p>${q?'找不到符合的原料':'尚無原料，請新增'}</p></div>`
+    return
+  }
+  el.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>品名</th><th>進貨量</th><th>進貨價格</th><th>單位成本</th><th></th></tr></thead>
+    <tbody>${list.map(r=>{
+      const cpg=unitCostPerG(r)
+      const costStr=r.unit==='個'?`NT$ ${cpg.toFixed(2)}/個`:`NT$ ${(cpg*1000).toFixed(2)}/kg`
+      return `<tr>
+        <td class="td-name">${r.name}</td>
+        <td>${r.qty} ${badge(r.unit)}</td>
+        <td>NT$ ${r.price?.toLocaleString()}</td>
+        <td class="td-cost">${costStr}</td>
+        <td class="td-actions">
+          <button class="btn-icon" onclick="editRaw('${r.id}')" title="編輯">✎</button>
+          <button class="btn-icon btn-del" onclick="openConfirm('${r.name}',()=>delRaw('${r.id}'))" title="刪除">⌫</button>
+        </td>
+      </tr>`
+    }).join('')}</tbody>
+  </table></div>`
+}
+
+window.submitRaw=async()=>{
+  const name=document.getElementById('f-raw-name').value.trim()
+  const qty=parseFloat(document.getElementById('f-raw-qty').value)
+  const unit=document.getElementById('f-raw-unit').value
+  const price=parseFloat(document.getElementById('f-raw-price').value)
+  let ok=true
+  if(!name){showErr('f-raw-name-wrap','e-raw-name','請輸入品名');ok=false}else hideErr('f-raw-name-wrap','e-raw-name')
+  if(!qty||qty<=0){showErr('f-raw-qty-wrap','e-raw-qty','請輸入有效數量');ok=false}else hideErr('f-raw-qty-wrap','e-raw-qty')
+  if(!price||price<=0){showErr('f-raw-price-wrap','e-raw-price','請輸入有效價格');ok=false}else hideErr('f-raw-price-wrap','e-raw-price')
+  if(!ok)return
+  document.getElementById('raw-submit-btn').disabled=true
+  const payload={name,qty,unit,price}
+  if(window._editRawId){
+    await updateDoc(doc(db,'rawIngredients',window._editRawId),payload)
+    window._editRawId=null
+  }else{
+    await addDoc(collection(db,'rawIngredients'),{...payload,createdAt:serverTimestamp()})
+  }
+  clearRawForm()
+  document.getElementById('raw-submit-btn').disabled=false
+}
+
+window.editRaw=(id)=>{
+  const r=window._raw.find(x=>x.id===id)
+  if(!r)return
+  window._editRawId=id
+  document.getElementById('f-raw-name').value=r.name
+  document.getElementById('f-raw-qty').value=r.qty
+  document.getElementById('f-raw-unit').value=r.unit
+  document.getElementById('f-raw-price').value=r.price
+  document.getElementById('raw-form-title').textContent='✏️ 編輯原料'
+  document.getElementById('raw-submit-btn').textContent='儲存'
+  document.getElementById('raw-cancel-btn').classList.remove('hidden')
+}
+window.cancelRaw=()=>{ window._editRawId=null; clearRawForm() }
+function clearRawForm(){
+  ['f-raw-name','f-raw-qty','f-raw-price'].forEach(id=>document.getElementById(id).value='')
+  document.getElementById('f-raw-unit').value='kg'
+  document.getElementById('raw-form-title').textContent='＋ 新增原料'
+  document.getElementById('raw-submit-btn').textContent='新增'
+  document.getElementById('raw-cancel-btn').classList.add('hidden')
+  ;['f-raw-name-wrap','f-raw-qty-wrap','f-raw-price-wrap'].forEach(id=>{ document.getElementById(id).classList.remove('err') })
+}
+window.delRaw=async(id)=>{ await deleteDoc(doc(db,'rawIngredients',id)) }
+
+// ===== PREP PAGE =====
+window.addPrepIng=()=>{
+  const sel=document.getElementById('prep-ing-sel')
+  const amt=parseFloat(document.getElementById('prep-ing-amt').value)
+  if(!sel.value||!amt||amt<=0)return
+  if(window._prepIngs.find(i=>i.rawId===sel.value))return
+  const r=window._raw.find(x=>x.id===sel.value)
+  window._prepIngs.push({rawId:sel.value,rawName:r?.name,amount:amt})
+  document.getElementById('prep-ing-amt').value=''
+  renderPrepTags()
+  updatePrepPreview()
+}
+window.removePrepIng=(idx)=>{ window._prepIngs.splice(idx,1); renderPrepTags(); updatePrepPreview() }
+function renderPrepTags(){
+  document.getElementById('prep-tags').innerHTML=window._prepIngs.map((i,idx)=>
+    `<span class="tag">${i.rawName} ${i.amount}g<button class="tag-remove" onclick="removePrepIng(${idx})">×</button></span>`
+  ).join('')
+}
+window.updatePrepPreview=()=>{
+  const total=parseFloat(document.getElementById('f-prep-total').value)||0
+  if(!window._prepIngs.length||!total){document.getElementById('prep-preview').classList.add('hidden');return}
+  const cost=calcPrepCost(window._prepIngs)
+  document.getElementById('prep-preview-cost').textContent=`NT$ ${cost.toFixed(1)}`
+  document.getElementById('prep-preview-cpg').textContent=`每g：NT$ ${(cost/total).toFixed(4)}`
+  document.getElementById('prep-preview').classList.remove('hidden')
+}
+
+window.renderPrep=()=>{
+  const q=document.getElementById('prep-search').value||''
+  const list=window._prep.filter(p=>!q||p.name?.includes(q))
+  document.getElementById('prep-count').textContent=`${list.length} 筆`
+  const el=document.getElementById('prep-list')
+  if(!list.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🥣</div><p>${q?'找不到符合的備料':'尚無備料，請新增'}</p></div>`
+    return
+  }
+  el.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>備料名稱</th><th>成分</th><th>總重</th><th>份數</th><th>食材成本</th><th>每g成本</th><th></th></tr></thead>
+    <tbody>${list.map(p=>{
+      const cost=calcPrepCost(p.ingredients)
+      const cpg=calcPrepCostPerG(p)
+      const ings=(p.ingredients||[]).map(i=>`<span class="ing-chip">${i.rawName} ${i.amount}g</span>`).join('')
+      return `<tr>
+        <td class="td-name">${p.name}</td>
+        <td class="td-ings">${ings||'—'}</td>
+        <td>${p.totalWeight}g × ${p.servings||1}份</td>
+        <td>${p.servings||1}</td>
+        <td class="td-cost">NT$ ${cost.toFixed(1)}</td>
+        <td class="td-cost">NT$ ${cpg.toFixed(4)}</td>
+        <td class="td-actions">
+          <button class="btn-icon" onclick="editPrep('${p.id}')" title="編輯">✎</button>
+          <button class="btn-icon btn-del" onclick="openConfirm('${p.name}',()=>delPrep('${p.id}'))" title="刪除">⌫</button>
+        </td>
+      </tr>`
+    }).join('')}</tbody>
+  </table></div>`
+}
+
+window.submitPrep=async()=>{
+  const name=document.getElementById('f-prep-name').value.trim()
+  const total=parseFloat(document.getElementById('f-prep-total').value)
+  const servings=parseInt(document.getElementById('f-prep-servings').value)||1
+  let ok=true
+  if(!name){showErr('f-prep-name-wrap','e-prep-name','請輸入備料名稱');ok=false}else hideErr('f-prep-name-wrap','e-prep-name')
+  if(!total||total<=0){showErr('f-prep-total-wrap','e-prep-total','請輸入總重量');ok=false}else hideErr('f-prep-total-wrap','e-prep-total')
+  if(!ok)return
+  document.getElementById('prep-submit-btn').disabled=true
+  const payload={name,totalWeight:total,servings,ingredients:window._prepIngs}
+  if(window._editPrepId){
+    await updateDoc(doc(db,'prepItems',window._editPrepId),payload)
+    window._editPrepId=null
+  }else{
+    await addDoc(collection(db,'prepItems'),{...payload,createdAt:serverTimestamp()})
+  }
+  clearPrepForm()
+  document.getElementById('prep-submit-btn').disabled=false
+}
+
+window.editPrep=(id)=>{
+  const p=window._prep.find(x=>x.id===id)
+  if(!p)return
+  window._editPrepId=id
+  document.getElementById('f-prep-name').value=p.name
+  document.getElementById('f-prep-total').value=p.totalWeight
+  document.getElementById('f-prep-servings').value=p.servings||1
+  window._prepIngs=[...(p.ingredients||[])]
+  renderPrepTags()
+  updatePrepPreview()
+  document.getElementById('prep-form-title').textContent='✏️ 編輯備料'
+  document.getElementById('prep-submit-btn').textContent='儲存'
+  document.getElementById('prep-cancel-btn').classList.remove('hidden')
+}
+window.cancelPrep=()=>{ window._editPrepId=null; clearPrepForm() }
+function clearPrepForm(){
+  document.getElementById('f-prep-name').value=''
+  document.getElementById('f-prep-total').value=''
+  document.getElementById('f-prep-servings').value=1
+  window._prepIngs=[]
+  renderPrepTags()
+  document.getElementById('prep-preview').classList.add('hidden')
+  document.getElementById('prep-form-title').textContent='＋ 新增備料'
+  document.getElementById('prep-submit-btn').textContent='新增'
+  document.getElementById('prep-cancel-btn').classList.add('hidden')
+}
+window.delPrep=async(id)=>{ await deleteDoc(doc(db,'prepItems',id)) }
+
+// ===== FINISHED PAGE =====
+window.addFinRaw=()=>{
+  const sel=document.getElementById('fin-raw-sel')
+  const amt=parseFloat(document.getElementById('fin-raw-amt').value)
+  if(!sel.value||!amt||amt<=0)return
+  if(window._finIngs.find(i=>i.type==='raw'&&i.refId===sel.value))return
+  const r=window._raw.find(x=>x.id===sel.value)
+  window._finIngs.push({type:'raw',refId:sel.value,name:r?.name,amount:amt})
+  document.getElementById('fin-raw-amt').value=''
+  renderFinTags(); updateFinPreview()
+}
+window.addFinPrep=()=>{
+  const sel=document.getElementById('fin-prep-sel')
+  const amt=parseFloat(document.getElementById('fin-prep-amt').value)
+  if(!sel.value||!amt||amt<=0)return
+  if(window._finIngs.find(i=>i.type==='prep'&&i.refId===sel.value))return
+  const p=window._prep.find(x=>x.id===sel.value)
+  window._finIngs.push({type:'prep',refId:sel.value,name:p?.name,amount:amt})
+  document.getElementById('fin-prep-amt').value=''
+  renderFinTags(); updateFinPreview()
+}
+window.removeFinIng=(idx)=>{ window._finIngs.splice(idx,1); renderFinTags(); updateFinPreview() }
+function renderFinTags(){
+  document.getElementById('fin-tags').innerHTML=window._finIngs.map((i,idx)=>
+    `<span class="tag">${i.type==='prep'?'[備料] ':''}${i.name} ${i.amount}g<button class="tag-remove" onclick="removeFinIng(${idx})">×</button></span>`
+  ).join('')
+}
+window.updateFinPreview=()=>{
+  if(!window._finIngs.length){document.getElementById('fin-preview-row').classList.add('hidden');return}
+  const qty=parseInt(document.getElementById('f-fin-qty').value)||1
+  const price=parseFloat(document.getElementById('f-fin-price').value)||0
+  const margin=parseFloat(document.getElementById('f-fin-margin').value)||60
+  const cost=calcFinCost(window._finIngs)*qty
+  const gm=price>0?((price-cost)/price*100):null
+  const suggested=cost>0&&margin<100?cost/(1-margin/100):null
+  document.getElementById('fin-prev-cost').textContent=`NT$ ${cost.toFixed(1)}`
+  if(gm!==null){
+    document.getElementById('fin-prev-margin').textContent=`${gm.toFixed(1)}%`
+    document.getElementById('fin-prev-margin').className=gm>=margin?'margin-good':'margin-bad'
+    document.getElementById('fin-prev-margin-wrap').classList.remove('hidden')
+  }else{ document.getElementById('fin-prev-margin-wrap').classList.add('hidden') }
+  document.getElementById('fin-prev-suggest').textContent=suggested?`NT$ ${suggested.toFixed(0)}`:'—'
+  document.getElementById('fin-preview-row').classList.remove('hidden')
+}
+
+window.renderFin=()=>{
+  const q=document.getElementById('fin-search').value||''
+  const list=window._fin.filter(f=>!q||f.name?.includes(q))
+  document.getElementById('fin-count').textContent=`${list.length} 筆`
+  const el=document.getElementById('fin-list')
+  if(!list.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🍞</div><p>${q?'找不到符合的成品':'尚無成品，請新增'}</p></div>`
+    return
+  }
+  el.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>成品名稱</th><th>成分</th><th>食材成本</th><th>售價</th><th>毛利率</th><th>建議售價</th><th></th></tr></thead>
+    <tbody>${list.map(f=>{
+      const cost=calcFinCost(f.ingredients)*(f.quantity||1)
+      const gm=f.salePrice>0?((f.salePrice-cost)/f.salePrice*100):null
+      const sug=cost>0&&(f.targetMargin||60)<100?cost/(1-(f.targetMargin||60)/100):null
+      const isGood=gm!==null&&gm>=(f.targetMargin||60)
+      const ings=(f.ingredients||[]).map(i=>`<span class="ing-chip ${i.type==='prep'?'ing-chip-prep':''}">${i.name} ${i.amount}g</span>`).join('')
+      return `<tr>
+        <td class="td-name">${f.name}</td>
+        <td class="td-ings">${ings||'—'}</td>
+        <td class="td-cost">NT$ ${cost.toFixed(1)}</td>
+        <td>${f.salePrice?`NT$ ${f.salePrice}`:'—'}</td>
+        <td>${gm!==null?`<span class="${isGood?'margin-good':'margin-bad'}">${gm.toFixed(1)}%</span>`:'—'}</td>
+        <td class="td-cost">${sug?`NT$ ${sug.toFixed(0)}`:'—'}</td>
+        <td class="td-actions">
+          <button class="btn-icon" onclick="editFin('${f.id}')" title="編輯">✎</button>
+          <button class="btn-icon btn-del" onclick="openConfirm('${f.name}',()=>delFin('${f.id}'))" title="刪除">⌫</button>
+        </td>
+      </tr>`
+    }).join('')}</tbody>
+  </table></div>`
+}
+
+window.submitFin=async()=>{
+  const name=document.getElementById('f-fin-name').value.trim()
+  if(!name){showErr('f-fin-name-wrap','e-fin-name','請輸入成品名稱');return}
+  hideErr('f-fin-name-wrap','e-fin-name')
+  document.getElementById('fin-submit-btn').disabled=true
+  const payload={
+    name,
+    salePrice:parseFloat(document.getElementById('f-fin-price').value)||0,
+    quantity:parseInt(document.getElementById('f-fin-qty').value)||1,
+    targetMargin:parseFloat(document.getElementById('f-fin-margin').value)||60,
+    ingredients:window._finIngs
+  }
+  if(window._editFinId){
+    await updateDoc(doc(db,'finishedProducts',window._editFinId),payload)
+    window._editFinId=null
+  }else{
+    await addDoc(collection(db,'finishedProducts'),{...payload,createdAt:serverTimestamp()})
+  }
+  clearFinForm()
+  document.getElementById('fin-submit-btn').disabled=false
+}
+
+window.editFin=(id)=>{
+  const f=window._fin.find(x=>x.id===id)
+  if(!f)return
+  window._editFinId=id
+  document.getElementById('f-fin-name').value=f.name
+  document.getElementById('f-fin-price').value=f.salePrice||''
+  document.getElementById('f-fin-qty').value=f.quantity||1
+  document.getElementById('f-fin-margin').value=f.targetMargin||60
+  window._finIngs=[...(f.ingredients||[])]
+  renderFinTags(); updateFinPreview()
+  document.getElementById('fin-form-title').textContent='✏️ 編輯成品'
+  document.getElementById('fin-submit-btn').textContent='儲存'
+  document.getElementById('fin-cancel-btn').classList.remove('hidden')
+}
+window.cancelFin=()=>{ window._editFinId=null; clearFinForm() }
+function clearFinForm(){
+  document.getElementById('f-fin-name').value=''
+  document.getElementById('f-fin-price').value=''
+  document.getElementById('f-fin-qty').value=1
+  document.getElementById('f-fin-margin').value=60
+  window._finIngs=[]
+  renderFinTags()
+  document.getElementById('fin-preview-row').classList.add('hidden')
+  document.getElementById('fin-form-title').textContent='＋ 新增成品'
+  document.getElementById('fin-submit-btn').textContent='新增'
+  document.getElementById('fin-cancel-btn').classList.add('hidden')
+}
+window.delFin=async(id)=>{ await deleteDoc(doc(db,'finishedProducts',id)) }
+
+// ===== Error helpers =====
+function showErr(wrapId,msgId,msg){
+  document.getElementById(wrapId).classList.add('err')
+  const el=document.getElementById(msgId)
+  el.textContent=msg; el.classList.remove('hidden')
+}
+function hideErr(wrapId,msgId){
+  document.getElementById(wrapId).classList.remove('err')
+  document.getElementById(msgId).classList.add('hidden')
+}
+
+</script>
+</body>
 </html>
