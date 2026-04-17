@@ -151,7 +151,10 @@ tr:hover td{background:var(--cream)}
 .lc-2{background:#fef3dc;color:#8a5a10}.lc-3{background:#fbeaf0;color:#8a3055}
 .lc-4{background:#f0eafd;color:#6b3fa0}.lc-5{background:#fceaea;color:#b84040}
 .lc-6{background:#e0f5f0;color:#1a7a60}.lc-7{background:#fff3e0;color:#a05a10}
-.td-labels{max-width:180px}
+.td-drag{color:var(--text-hint);cursor:grab;font-size:16px;padding:10px 6px!important;user-select:none}
+.td-drag:active{cursor:grabbing}
+.raw-row.dragging{opacity:.4}
+.raw-row.drag-over td{background:var(--amber-bg)}
 .td-time{font-size:12px;color:var(--text-hint);white-space:nowrap}
 .raw-filter-labels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .filter-label{cursor:pointer;opacity:.6;transition:opacity .15s}
@@ -433,6 +436,7 @@ window._editFinId = null
 window._confirmCb = null
 window._rawSelectedLabels = []   // 表單暫存標籤
 window._rawFilterLabel = null    // 列表篩選標籤
+window._rawDragId = null         // 拖曳排序暫存
 
 // 預設標籤清單（顏色對應 lc-0~7）
 const PRESET_LABELS = [
@@ -503,7 +507,9 @@ function renderFilterLabels(){
 window.setFilterLabel=(name)=>{ window._rawFilterLabel=name; renderFilterLabels(); renderRaw() }
 
 // ===== Firestore Listeners =====
-const qRaw  = query(collection(db,'rawIngredients'), orderBy('createdAt','asc'))
+// 注意：rawIngredients 改用 sortOrder 排序後，需在 Firebase Console 建立索引
+// 或直接在 Firestore > Indexes 新增：Collection=rawIngredients, Field=sortOrder asc
+const qRaw  = query(collection(db,'rawIngredients'), orderBy('sortOrder','asc'))
 const qPrep = query(collection(db,'prepItems'),      orderBy('createdAt','asc'))
 const qFin  = query(collection(db,'finishedProducts'),orderBy('createdAt','asc'))
 
@@ -606,13 +612,24 @@ window.renderRaw=()=>{
     el.innerHTML=`<div class="empty-state"><div class="empty-icon">🌾</div><p>${q||window._rawFilterLabel?'找不到符合的原料':'尚無原料，請新增'}</p></div>`
     return
   }
+  // 拖曳排序只在無篩選時啟用
+  const canSort=!q&&!window._rawFilterLabel
   el.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>品名</th><th>標籤</th><th>進貨量</th><th>進貨價格</th><th>單位成本</th><th>建立時間</th><th></th></tr></thead>
-    <tbody>${list.map(r=>{
+    <thead><tr>${canSort?'<th></th>':''}<th>品名</th><th>標籤</th><th>進貨量</th><th>進貨價格</th><th>每g單位成本</th><th>建立時間</th><th></th></tr></thead>
+    <tbody id="raw-tbody">${list.map(r=>{
       const cpg=unitCostPerG(r)
-      const costStr=r.unit==='個'?`NT$ ${cpg.toFixed(2)}/個`:`NT$ ${(cpg*1000).toFixed(2)}/kg`
+      // 全部換算為每g成本
+      const costStr=r.unit==='個'
+        ? `NT$ ${cpg.toFixed(2)} / 個`
+        : `NT$ ${cpg.toFixed(4)} / g`
       const labelsHtml=(r.labels||[]).map(l=>`<span class="raw-label lc-${l.color}">${l.name}</span>`).join(' ')
-      return `<tr>
+      return `<tr draggable="${canSort}" data-id="${r.id}"
+        ondragstart="onRawDragStart(event,'${r.id}')"
+        ondragover="onRawDragOver(event)"
+        ondrop="onRawDrop(event,'${r.id}')"
+        ondragend="onRawDragEnd()"
+        class="raw-row">
+        ${canSort?`<td class="td-drag" title="拖曳排序">⠿</td>`:''}
         <td class="td-name">${r.name}</td>
         <td class="td-labels">${labelsHtml||'—'}</td>
         <td>${r.qty} ${badge(r.unit)}</td>
@@ -626,6 +643,32 @@ window.renderRaw=()=>{
       </tr>`
     }).join('')}</tbody>
   </table></div>`
+}
+
+// ===== 拖曳排序 =====
+window.onRawDragStart=(e,id)=>{
+  window._rawDragId=id
+  e.dataTransfer.effectAllowed='move'
+  setTimeout(()=>e.target.classList.add('dragging'),0)
+}
+window.onRawDragOver=(e)=>{ e.preventDefault(); e.dataTransfer.dropEffect='move' }
+window.onRawDragEnd=()=>{
+  document.querySelectorAll('.raw-row').forEach(r=>r.classList.remove('dragging','drag-over'))
+}
+window.onRawDrop=async(e,targetId)=>{
+  e.preventDefault()
+  if(!window._rawDragId||window._rawDragId===targetId)return
+  // 重新排列本地順序
+  const fromIdx=window._raw.findIndex(r=>r.id===window._rawDragId)
+  const toIdx=window._raw.findIndex(r=>r.id===targetId)
+  if(fromIdx<0||toIdx<0)return
+  const reordered=[...window._raw]
+  const [moved]=reordered.splice(fromIdx,1)
+  reordered.splice(toIdx,0,moved)
+  // 批次寫入 sortOrder
+  const updates=reordered.map((r,i)=>updateDoc(doc(db,'rawIngredients',r.id),{sortOrder:i}))
+  await Promise.all(updates)
+  window._rawDragId=null
 }
 
 window.submitRaw=async()=>{
@@ -644,7 +687,8 @@ window.submitRaw=async()=>{
     await updateDoc(doc(db,'rawIngredients',window._editRawId),payload)
     window._editRawId=null
   }else{
-    await addDoc(collection(db,'rawIngredients'),{...payload,createdAt:serverTimestamp()})
+    const sortOrder=window._raw.length  // 新增排在最後
+    await addDoc(collection(db,'rawIngredients'),{...payload,sortOrder,createdAt:serverTimestamp()})
   }
   clearRawForm()
   document.getElementById('raw-submit-btn').disabled=false
