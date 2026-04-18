@@ -86,7 +86,7 @@ body{font-family:'Noto Sans TC',system-ui,sans-serif;background:var(--cream);col
 .form-title{font-size:14px;font-weight:500;color:var(--text-sec);margin-bottom:1rem}
 .form-grid{display:grid;gap:10px}
 .g-raw{grid-template-columns:2fr 1fr 1fr 1.2fr auto}
-.g-prep{grid-template-columns:2fr 1fr 1fr}
+.g-prep{grid-template-columns:2fr 1fr}
 .g-fin{grid-template-columns:2fr 1fr 1fr 1fr}
 .field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:12px;color:var(--text-sec);font-weight:500}
@@ -99,6 +99,10 @@ input::placeholder{color:var(--text-hint)}
 .ing-add-row{display:flex;gap:8px;align-items:center}
 .ing-add-row select{flex:2}.ing-add-row input{flex:1}
 .ing-section-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:4px}
+.label-filter-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.lf-btn{padding:3px 10px;border-radius:99px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--cream2);color:var(--text-sec);transition:all .15s}
+.lf-btn:hover{border-color:var(--border-md);color:var(--text-pri)}
+.lf-btn.lf-on{border-color:currentColor;opacity:1;font-weight:600}
 .tags-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .form-actions{display:flex;gap:8px;align-items:flex-end}
 .form-footer{display:flex;gap:8px;margin-top:1rem}
@@ -374,12 +378,9 @@ tr:hover td{background:var(--cream)}
           <input id="f-prep-total" type="number" placeholder="1200" min="0" oninput="updatePrepPreview()">
           <span class="err-msg hidden" id="e-prep-total"></span>
         </div>
-        <div class="field">
-          <label>份數</label>
-          <input id="f-prep-servings" type="number" placeholder="1" min="1" value="1">
-        </div>
       </div>
       <div class="form-section-title">使用的原料</div>
+      <div class="label-filter-row" id="prep-label-filter"></div>
       <div class="ing-add-row">
         <select id="prep-ing-sel"></select>
         <input id="prep-ing-amt" type="number" placeholder="用量(g / 個)" min="0">
@@ -443,6 +444,7 @@ tr:hover td{background:var(--cream)}
       <div class="ing-section-grid">
         <div>
           <div class="form-section-title">加入原料</div>
+          <div class="label-filter-row" id="fin-label-filter"></div>
           <div class="ing-add-row">
             <select id="fin-raw-sel"></select>
             <input id="fin-raw-amt" type="number" placeholder="用量(g / 個)" min="0">
@@ -967,14 +969,55 @@ window.openConfirm=(name,cb)=>{
 window.closeConfirm=()=>document.getElementById('confirm-overlay').classList.add('hidden')
 window.doConfirm=()=>{ window._confirmCb&&window._confirmCb(); closeConfirm() }
 
-// ===== Selects =====
+// ===== Selects with label filter =====
+let _prepLabelFilter=null
+let _finLabelFilter=null
+
+function filteredRawOptions(labelFilter){
+  return window._raw.filter(r=>{
+    if(!labelFilter) return true
+    return (r.labels||[]).some(l=>(typeof l==='string'?l:l.name)===labelFilter)
+  })
+}
+
 window.updateSelects=()=>{
+  // 備料：加入原料 select
   const prepIngSel=document.getElementById('prep-ing-sel')
+  const prepFiltered=filteredRawOptions(_prepLabelFilter)
+  prepIngSel.innerHTML=prepFiltered.length
+    ? prepFiltered.map(r=>`<option value="${r.id}">${r.name} (${r.unit})</option>`).join('')
+    : `<option value="">（此分類無原料）</option>`
+
+  // 成品：加入原料 select
   const finRawSel=document.getElementById('fin-raw-sel')
+  const finFiltered=filteredRawOptions(_finLabelFilter)
+  finRawSel.innerHTML=finFiltered.length
+    ? finFiltered.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')
+    : `<option value="">（此分類無原料）</option>`
+
+  // 成品：加入備料 select（不需要標籤篩選）
   const finPrepSel=document.getElementById('fin-prep-sel')
-  prepIngSel.innerHTML=window._raw.map(r=>`<option value="${r.id}">${r.name} (${r.unit})</option>`).join('')
-  finRawSel.innerHTML=window._raw.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')
   finPrepSel.innerHTML=window._prep.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')
+
+  // 渲染標籤篩選按鈕
+  renderIngLabelFilter('prep-label-filter', _prepLabelFilter, 'setPrepLabelFilter')
+  renderIngLabelFilter('fin-label-filter', _finLabelFilter, 'setFinLabelFilter')
+}
+
+window.setPrepLabelFilter=(n)=>{ _prepLabelFilter=n; updateSelects() }
+window.setFinLabelFilter=(n)=>{ _finLabelFilter=n; updateSelects() }
+
+function renderIngLabelFilter(containerId, currentFilter, callbackName){
+  const el=document.getElementById(containerId)
+  if(!_allLabels.length){ el.innerHTML=''; return }
+  el.innerHTML=
+    `<button class="lf-btn ${currentFilter===null?'lf-on':''}" onclick="${callbackName}(null)">全部</button>`
+    +_allLabels.map(l=>
+      `<button class="lf-btn lc-${l.color} ${currentFilter===l.name?'lf-on':''}"
+        onclick="${callbackName}('${l.name.replace(/'/g,"\\'")}')">
+        ${l.name}
+      </button>`
+    ).join('')
 }
 
 // ===== Badge =====
@@ -1214,7 +1257,7 @@ window.renderPrep=()=>{
     return
   }
   el.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>備料名稱</th><th>成分</th><th>總重</th><th>份數</th><th>食材成本</th><th>每g成本</th><th></th></tr></thead>
+    <thead><tr><th>備料名稱</th><th>成分</th><th>總重量</th><th>食材成本</th><th>每g成本</th><th></th></tr></thead>
     <tbody>${list.map(p=>{
       const cost=calcPrepCost(p.ingredients)
       const cpg=calcPrepCostPerG(p)
@@ -1222,8 +1265,7 @@ window.renderPrep=()=>{
       return `<tr>
         <td class="td-name">${p.name}</td>
         <td class="td-ings">${ings||'—'}</td>
-        <td>${p.totalWeight}g × ${p.servings||1}份</td>
-        <td>${p.servings||1}</td>
+        <td>${p.totalWeight}g</td>
         <td class="td-cost">NT$ ${cost.toFixed(1)}</td>
         <td class="td-cost">NT$ ${cpg.toFixed(4)}</td>
         <td class="td-actions">
@@ -1238,13 +1280,12 @@ window.renderPrep=()=>{
 window.submitPrep=async()=>{
   const name=document.getElementById('f-prep-name').value.trim()
   const total=parseFloat(document.getElementById('f-prep-total').value)
-  const servings=parseInt(document.getElementById('f-prep-servings').value)||1
   let ok=true
   if(!name){showErr('f-prep-name-wrap','e-prep-name','請輸入備料名稱');ok=false}else hideErr('f-prep-name-wrap','e-prep-name')
   if(!total||total<=0){showErr('f-prep-total-wrap','e-prep-total','請輸入總重量');ok=false}else hideErr('f-prep-total-wrap','e-prep-total')
   if(!ok)return
   document.getElementById('prep-submit-btn').disabled=true
-  const payload={name,totalWeight:total,servings,ingredients:window._prepIngs}
+  const payload={name,totalWeight:total,ingredients:window._prepIngs}
   if(window._editPrepId){
     await updateDoc(doc(db,'prepItems',window._editPrepId),payload)
     window._editPrepId=null
@@ -1261,7 +1302,6 @@ window.editPrep=(id)=>{
   window._editPrepId=id
   document.getElementById('f-prep-name').value=p.name
   document.getElementById('f-prep-total').value=p.totalWeight
-  document.getElementById('f-prep-servings').value=p.servings||1
   window._prepIngs=[...(p.ingredients||[])]
   renderPrepTags()
   updatePrepPreview()
@@ -1273,7 +1313,6 @@ window.cancelPrep=()=>{ window._editPrepId=null; clearPrepForm(); closePrepForm(
 function clearPrepForm(){
   document.getElementById('f-prep-name').value=''
   document.getElementById('f-prep-total').value=''
-  document.getElementById('f-prep-servings').value=1
   window._prepIngs=[]
   renderPrepTags()
   document.getElementById('prep-preview').classList.add('hidden')
