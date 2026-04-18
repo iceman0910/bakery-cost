@@ -264,7 +264,7 @@ tr:hover td{background:var(--cream)}
         <div class="field">
           <label>單位</label>
           <select id="f-raw-unit">
-            <option>kg</option><option>g</option><option>cc</option><option>個</option>
+            <option>kg</option><option>g</option><option>cc</option><option>斤</option><option>個</option>
           </select>
         </div>
         <div class="field" id="f-raw-price-wrap">
@@ -698,6 +698,8 @@ function unitCostPerG(raw){
   const {qty,unit,price}=raw
   if(!qty||!price)return 0
   if(unit==='kg') return price/(qty*1000)
+  if(unit==='斤') return price/(qty*600)
+  if(unit==='個') return price/qty
   return price/qty
 }
 function calcPrepCost(ings){
@@ -773,7 +775,7 @@ window.updateSelects=()=>{
 
 // ===== Badge =====
 function badge(u){
-  const cls={kg:'badge-blue',g:'badge-green',cc:'badge-amber','個':'badge-pink'}
+  const cls={kg:'badge-blue',g:'badge-green',cc:'badge-amber','斤':'badge-amber','個':'badge-pink'}
   return `<span class="badge ${cls[u]||'badge-gray'}">${u}</span>`
 }
 
