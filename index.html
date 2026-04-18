@@ -158,9 +158,12 @@ tr:hover td{background:var(--cream)}
 .raw-row.drag-over td{background:var(--amber-bg)}
 
 /* 標籤列 */
-.label-bar{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;min-height:32px}
-.label-bar-left{display:flex;align-items:center;gap:6px;flex:1;flex-wrap:wrap}
-.selected-chips{display:flex;flex-wrap:wrap;gap:5px}
+.label-bar{margin-top:12px}
+.label-bar-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.raw-all-labels{display:flex;flex-wrap:wrap;gap:6px}
+.label-toggle{cursor:pointer;opacity:.55;transition:all .15s;border:1.5px solid transparent}
+.label-toggle:hover{opacity:.85}
+.label-toggle.label-on{opacity:1;border-color:currentColor;font-weight:500}
 .no-label-hint{font-size:13px;color:var(--text-hint)}
 .btn-edit-labels{height:30px;padding:0 12px;background:transparent;color:var(--brown-md);border:1px solid var(--border-md);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .btn-edit-labels:hover{background:var(--cream2)}
@@ -279,12 +282,12 @@ tr:hover td{background:var(--cream)}
         </div>
       </div>
       <div class="label-bar">
-        <div class="label-bar-left">
-          <span class="form-section-title" style="margin:0">已選標籤：</span>
-          <div id="raw-selected-labels" class="selected-chips"></div>
-          <span id="raw-no-label" class="no-label-hint">尚未選擇標籤</span>
+        <div class="label-bar-top">
+          <span class="form-section-title" style="margin:0">標籤</span>
+          <button class="btn-edit-labels" onclick="openLabelEditor()">✎ 編輯標籤</button>
         </div>
-        <button class="btn-edit-labels" onclick="openLabelEditor()">✎ 編輯標籤</button>
+        <div id="raw-all-labels" class="raw-all-labels"></div>
+        <div id="raw-no-label" class="no-label-hint hidden">尚無標籤，請點「編輯標籤」新增</div>
       </div>
     </div>
     <div class="list-header">
@@ -444,26 +447,19 @@ tr:hover td{background:var(--cream)}
       <span class="label-modal-title">編輯標籤</span>
     </div>
 
-    <!-- 預設標籤快選 -->
+    <!-- 預設標籤（可編輯、刪除、排序） -->
     <div class="label-editor-section">
-      <div class="label-editor-section-title">快速加入預設標籤</div>
-      <div id="le-presets" class="le-presets"></div>
+      <div class="label-editor-section-title">預設標籤</div>
+      <div id="le-preset-list"></div>
     </div>
 
-    <!-- 自訂新增 -->
+    <!-- 新增標籤 -->
     <div class="label-editor-section">
-      <div class="label-editor-section-title">新增自訂標籤</div>
+      <div class="label-editor-section-title">新增標籤</div>
       <div class="ing-add-row">
         <input id="le-new-input" placeholder="輸入標籤名稱" style="flex:1">
         <button class="btn-secondary" onclick="leAddNew()">新增</button>
       </div>
-    </div>
-
-    <!-- 已選標籤列表 -->
-    <div class="label-editor-section">
-      <div class="label-editor-section-title">已選標籤（可拖曳排序）</div>
-      <div id="le-list"></div>
-      <div id="le-empty" class="le-empty hidden">尚未加入任何標籤</div>
     </div>
 
     <div class="confirm-btns" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
@@ -514,30 +510,52 @@ const PRESET_LABELS = [
   {name:'堅果',color:6}
 ]
 
-// ===== 已選標籤顯示（表單外層） =====
+// ===== 標籤系統 =====
+// _allLabels = 所有可用標籤（預設＋自訂），是全域標籤庫
+// _rawSelectedLabels = 目前這筆原料已選的標籤名稱列表（字串陣列）
+window._rawSelectedLabels = []  // 已選標籤名稱 ['粉類','油脂',...]
+
+let _allLabels = [
+  {name:'粉類',color:0},{name:'糖＆鹽',color:2},{name:'油脂',color:3},
+  {name:'乳製品',color:1},{name:'蛋',color:7},{name:'酵母',color:4},
+  {name:'堅果',color:6}
+]
+
+// 外層標籤列：顯示所有標籤，已選的高亮，點一下切換選取
 function renderSelectedLabels(){
-  const chips=document.getElementById('raw-selected-labels')
+  const allEl=document.getElementById('raw-all-labels')
   const hint=document.getElementById('raw-no-label')
-  const labels=window._rawSelectedLabels
-  if(!labels.length){
-    chips.innerHTML=''
+  if(!_allLabels.length){
+    allEl.innerHTML=''
     hint.classList.remove('hidden')
-  } else {
-    hint.classList.add('hidden')
-    chips.innerHTML=labels.map(l=>`<span class="raw-label lc-${l.color}">${l.name}</span>`).join('')
+    return
   }
+  hint.classList.add('hidden')
+  allEl.innerHTML=_allLabels.map(l=>{
+    const isOn=window._rawSelectedLabels.includes(l.name)
+    return `<span class="raw-label lc-${l.color} label-toggle ${isOn?'label-on':''}"
+      onclick="toggleLabel('${l.name.replace(/'/g,"\\'")}')">
+      ${l.name}${isOn?' ✓':''}
+    </span>`
+  }).join('')
 }
 
-// ===== 標籤編輯器 =====
-let _leLabels=[]   // 編輯器內的工作副本
+window.toggleLabel=(name)=>{
+  const idx=window._rawSelectedLabels.indexOf(name)
+  if(idx>=0) window._rawSelectedLabels.splice(idx,1)
+  else window._rawSelectedLabels.push(name)
+  renderSelectedLabels()
+}
+
+// ===== 標籤編輯器 Modal =====
+let _leLabels=[]   // modal 內工作副本
 let _leDragIdx=null
 
 window.openLabelEditor=()=>{
-  _leLabels=window._rawSelectedLabels.map(l=>({...l}))
-  renderLePresets()
-  renderLeList()
-  document.getElementById('label-editor-overlay').classList.remove('hidden')
+  _leLabels=_allLabels.map(l=>({...l}))
+  renderLePresetList()
   document.getElementById('le-new-input').value=''
+  document.getElementById('label-editor-overlay').classList.remove('hidden')
 }
 
 window.closeLabelEditor=()=>{
@@ -545,65 +563,45 @@ window.closeLabelEditor=()=>{
 }
 
 window.saveLabelEditor=()=>{
-  // 把輸入框的值全部讀回來
-  document.querySelectorAll('#le-list .le-name-input').forEach(inp=>{
+  // 同步所有 input 當前值
+  document.querySelectorAll('#le-preset-list .le-name-input').forEach(inp=>{
     const i=parseInt(inp.dataset.idx)
-    if(_leLabels[i]!==undefined) _leLabels[i].name=inp.value.trim()||_leLabels[i].name
+    if(_leLabels[i]!==undefined){
+      const newName=inp.value.trim()
+      if(newName){
+        // 如果改名，同步更新已選列表
+        const oldName=_leLabels[i].name
+        if(oldName!==newName){
+          const si=window._rawSelectedLabels.indexOf(oldName)
+          if(si>=0) window._rawSelectedLabels[si]=newName
+        }
+        _leLabels[i].name=newName
+      }
+    }
   })
-  window._rawSelectedLabels=_leLabels.filter(l=>l.name)
+  // 移除已刪除標籤的已選狀態
+  const validNames=_leLabels.map(l=>l.name)
+  window._rawSelectedLabels=window._rawSelectedLabels.filter(n=>validNames.includes(n))
+  _allLabels=[..._leLabels]
   renderSelectedLabels()
   closeLabelEditor()
 }
 
-function renderLePresets(){
-  const el=document.getElementById('le-presets')
-  el.innerHTML=PRESET_LABELS.map(l=>{
-    const active=_leLabels.some(x=>x.name===l.name)
-    return `<button class="le-preset-btn lc-${l.color} ${active?'active':''}"
-      onclick="leTogglePreset('${l.name}',${l.color},this)">${l.name}</button>`
-  }).join('')
-}
-
-window.leTogglePreset=(name,color,btn)=>{
-  const idx=_leLabels.findIndex(l=>l.name===name)
-  if(idx>=0){
-    _leLabels.splice(idx,1)
-    btn.classList.remove('active')
-  } else {
-    _leLabels.push({name,color})
-    btn.classList.add('active')
-  }
-  renderLeList()
-}
-
-window.leAddNew=()=>{
-  const inp=document.getElementById('le-new-input')
-  const name=inp.value.trim()
-  if(!name) return
-  if(_leLabels.find(l=>l.name===name)) return
-  const color=_leLabels.length%8
-  _leLabels.push({name,color})
-  inp.value=''
-  renderLePresets()
-  renderLeList()
-}
-document.getElementById('le-new-input').addEventListener('keydown',e=>{
-  if(e.key==='Enter'){e.preventDefault();leAddNew()}
-})
-
-function renderLeList(){
-  const el=document.getElementById('le-list')
-  const empty=document.getElementById('le-empty')
+function renderLePresetList(){
+  const el=document.getElementById('le-preset-list')
   if(!_leLabels.length){
-    el.innerHTML=''; empty.classList.remove('hidden'); return
+    el.innerHTML=`<div class="le-empty">尚無標籤，請在下方新增</div>`
+    return
   }
-  empty.classList.add('hidden')
   el.innerHTML=_leLabels.map((l,i)=>`
     <div class="le-item" draggable="true"
       ondragstart="leDragStart(event,${i})"
       ondragover="leDragOver(event)"
       ondrop="leDrop(event,${i})"
-      ondragend="leDragEnd()">
+      ondragend="leDragEnd()"
+      ontouchstart="leTouchStart(event,${i})"
+      ontouchmove="leTouchMove(event)"
+      ontouchend="leTouchEnd(event,${i})">
       <span class="le-drag">⠿</span>
       <span class="raw-label lc-${l.color} le-chip">${l.name}</span>
       <input class="le-name-input" data-idx="${i}" value="${l.name}"
@@ -613,32 +611,42 @@ function renderLeList(){
 }
 
 window.leUpdateName=(i,val)=>{
-  _leLabels[i].name=val
-  // 同步更新左側 chip
-  const chips=document.querySelectorAll('#le-list .le-chip')
+  _leLabels[i]._pendingName=val
+  const chips=document.querySelectorAll('#le-preset-list .le-chip')
   if(chips[i]) chips[i].textContent=val||'…'
 }
 
-window.leDelete=(i)=>{
-  // 先把所有 input 值同步回來
-  document.querySelectorAll('#le-list .le-name-input').forEach(inp=>{
-    const idx=parseInt(inp.dataset.idx)
-    if(_leLabels[idx]!==undefined) _leLabels[idx].name=inp.value.trim()||_leLabels[idx].name
+function syncLeInputs(){
+  document.querySelectorAll('#le-preset-list .le-name-input').forEach(inp=>{
+    const i=parseInt(inp.dataset.idx)
+    if(_leLabels[i]!==undefined) _leLabels[i].name=inp.value.trim()||_leLabels[i].name
   })
-  _leLabels.splice(i,1)
-  renderLePresets()
-  renderLeList()
 }
 
-window.leDragStart=(e,i)=>{
-  // 先把所有 input 值同步
-  document.querySelectorAll('#le-list .le-name-input').forEach(inp=>{
-    const idx=parseInt(inp.dataset.idx)
-    if(_leLabels[idx]!==undefined) _leLabels[idx].name=inp.value.trim()||_leLabels[idx].name
-  })
-  _leDragIdx=i
-  setTimeout(()=>e.target.classList.add('dragging'),0)
+window.leDelete=(i)=>{
+  syncLeInputs()
+  _leLabels.splice(i,1)
+  renderLePresetList()
 }
+
+window.leAddNew=()=>{
+  const inp=document.getElementById('le-new-input')
+  const name=inp.value.trim()
+  if(!name) return
+  if(_leLabels.find(l=>l.name===name)) return
+  const usedColors=_leLabels.map(l=>l.color)
+  const color=[0,1,2,3,4,5,6,7].find(c=>!usedColors.includes(c))??(_leLabels.length%8)
+  syncLeInputs()
+  _leLabels.push({name,color})
+  inp.value=''
+  renderLePresetList()
+}
+document.getElementById('le-new-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();leAddNew()}
+})
+
+// 拖曳（桌機）
+window.leDragStart=(e,i)=>{ syncLeInputs(); _leDragIdx=i; setTimeout(()=>e.target.classList.add('dragging'),0) }
 window.leDragOver=(e)=>e.preventDefault()
 window.leDragEnd=()=>document.querySelectorAll('.le-item').forEach(el=>el.classList.remove('dragging'))
 window.leDrop=(e,toIdx)=>{
@@ -647,7 +655,51 @@ window.leDrop=(e,toIdx)=>{
   const [moved]=_leLabels.splice(_leDragIdx,1)
   _leLabels.splice(toIdx,0,moved)
   _leDragIdx=null
-  renderLeList()
+  renderLePresetList()
+}
+
+// 拖曳（手機 touch）
+let _leTouchIdx=null, _leTouchClone=null, _leTouchOffY=0
+window.leTouchStart=(e,i)=>{
+  e.stopPropagation()
+  syncLeInputs()
+  _leTouchIdx=i
+  const row=e.target.closest('.le-item')
+  const rect=row.getBoundingClientRect()
+  _leTouchOffY=e.touches[0].clientY-rect.top
+  _leTouchClone=row.cloneNode(true)
+  _leTouchClone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:.85;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);border-radius:6px;z-index:9999;pointer-events:none;`
+  document.body.appendChild(_leTouchClone)
+  row.style.opacity='.3'
+}
+window.leTouchMove=(e)=>{
+  if(!_leTouchClone) return
+  e.preventDefault()
+  const t=e.touches[0]
+  _leTouchClone.style.top=(t.clientY-_leTouchOffY)+'px'
+  _leTouchClone.style.display='none'
+  const under=document.elementFromPoint(t.clientX,t.clientY)
+  _leTouchClone.style.display=''
+  document.querySelectorAll('.le-item').forEach(el=>el.classList.remove('drag-over'))
+  const targetItem=under?.closest('.le-item')
+  if(targetItem) targetItem.classList.add('drag-over')
+}
+window.leTouchEnd=(e,fromIdx)=>{
+  if(_leTouchClone){ _leTouchClone.remove(); _leTouchClone=null }
+  document.querySelectorAll('.le-item').forEach(el=>{ el.style.opacity=''; el.classList.remove('drag-over') })
+  const t=e.changedTouches[0]
+  const under=document.elementFromPoint(t.clientX,t.clientY)
+  const targetItem=under?.closest('.le-item[draggable]')
+  if(targetItem){
+    const items=[...document.querySelectorAll('.le-item')]
+    const toIdx=items.indexOf(targetItem)
+    if(toIdx>=0&&toIdx!==fromIdx){
+      const [moved]=_leLabels.splice(fromIdx,1)
+      _leLabels.splice(toIdx,0,moved)
+      renderLePresetList()
+    }
+  }
+  _leTouchIdx=null
 }
 
 function fmtTime(ts){
@@ -658,15 +710,16 @@ function fmtTime(ts){
 }
 
 function renderFilterLabels(){
-  // 收集所有現有標籤
-  const allLabels={}
-  window._raw.forEach(r=>(r.labels||[]).forEach(l=>{ allLabels[l.name]=l }))
+  const allLabelNames=new Set()
+  window._raw.forEach(r=>(r.labels||[]).forEach(l=>allLabelNames.add(typeof l==='string'?l:l.name)))
   const el=document.getElementById('raw-filter-labels')
-  if(!Object.keys(allLabels).length){ el.innerHTML=''; return }
+  if(!allLabelNames.size){ el.innerHTML=''; return }
   el.innerHTML='<span class="raw-label lc-6 filter-label '+(window._rawFilterLabel===null?'on':'')+'" onclick="setFilterLabel(null)">全部</span>'
-    +Object.values(allLabels).map(l=>
-      `<span class="raw-label lc-${l.color} filter-label ${window._rawFilterLabel===l.name?'on':''}" onclick="setFilterLabel('${l.name}')">${l.name}</span>`
-    ).join('')
+    +[...allLabelNames].map(name=>{
+      const meta=_allLabels.find(x=>x.name===name)
+      const color=meta?meta.color:0
+      return `<span class="raw-label lc-${color} filter-label ${window._rawFilterLabel===name?'on':''}" onclick="setFilterLabel('${name}')">${name}</span>`
+    }).join('')
 }
 window.setFilterLabel=(name)=>{ window._rawFilterLabel=name; renderFilterLabels(); renderRaw() }
 
@@ -784,7 +837,9 @@ function badge(u){
 window.renderRaw=()=>{
   const q=document.getElementById('raw-search').value||''
   let list=window._raw.filter(r=>!q||r.name?.includes(q))
-  if(window._rawFilterLabel) list=list.filter(r=>(r.labels||[]).some(l=>l.name===window._rawFilterLabel))
+  if(window._rawFilterLabel) list=list.filter(r=>{
+    return (r.labels||[]).some(l=>(typeof l==='string'?l:l.name)===window._rawFilterLabel)
+  })
   document.getElementById('raw-count').textContent=`${list.length} 筆`
   const el=document.getElementById('raw-list')
   if(!list.length){
@@ -801,7 +856,12 @@ window.renderRaw=()=>{
       const costStr=r.unit==='個'
         ? `NT$ ${cpg.toFixed(2)} / 個`
         : `NT$ ${cpg.toFixed(4)} / g`
-      const labelsHtml=(r.labels||[]).map(l=>`<span class="raw-label lc-${l.color}">${l.name}</span>`).join(' ')
+      const labelsHtml=(r.labels||[]).map(lname=>{
+        const name=typeof lname==='string'?lname:lname.name
+        const meta=_allLabels.find(x=>x.name===name)
+        const color=meta?meta.color:0
+        return `<span class="raw-label lc-${color}">${name}</span>`
+      }).join(' ')
       return `<tr data-id="${r.id}" class="raw-row"
         ${canSort?`draggable="true"
         ondragstart="onRawDragStart(event,'${r.id}')"
@@ -929,7 +989,7 @@ window.submitRaw=async()=>{
     await updateDoc(doc(db,'rawIngredients',window._editRawId),payload)
     window._editRawId=null
   }else{
-    const sortOrder=window._raw.length  // 新增排在最後
+    const sortOrder=window._raw.length
     await addDoc(collection(db,'rawIngredients'),{...payload,sortOrder,createdAt:serverTimestamp()})
   }
   clearRawForm()
@@ -944,13 +1004,9 @@ window.editRaw=(id)=>{
   document.getElementById('f-raw-qty').value=r.qty
   document.getElementById('f-raw-unit').value=r.unit
   document.getElementById('f-raw-price').value=r.price
-  // 還原標籤
-  window._rawSelectedLabels=[...(r.labels||[])]
-  // 重置 preset 選取狀態
-  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>{
-    const isSelected=window._rawSelectedLabels.some(l=>l.name===el.dataset.name)
-    el.classList.toggle('selected',isSelected)
-  })
+  // labels 可能是舊格式（物件陣列）或新格式（字串陣列），統一轉成字串陣列
+  const raw_labels=r.labels||[]
+  window._rawSelectedLabels=raw_labels.map(l=>typeof l==='string'?l:l.name)
   renderSelectedLabels()
   document.getElementById('raw-form-title').textContent='✏️ 編輯原料'
   document.getElementById('raw-submit-btn').textContent='儲存'
@@ -961,7 +1017,6 @@ function clearRawForm(){
   ['f-raw-name','f-raw-qty','f-raw-price'].forEach(id=>document.getElementById(id).value='')
   document.getElementById('f-raw-unit').value='kg'
   window._rawSelectedLabels=[]
-  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>el.classList.remove('selected'))
   renderSelectedLabels()
   document.getElementById('raw-form-title').textContent='＋ 新增原料'
   document.getElementById('raw-submit-btn').textContent='新增'
