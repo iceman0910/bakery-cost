@@ -68,15 +68,17 @@ body{font-family:'Noto Sans TC',system-ui,sans-serif;background:var(--cream);col
   overflow:hidden;
   max-height:0;
   margin-bottom:0;
-  padding-top:0;padding-bottom:0;
-  border-width:0;
-  transition:max-height .25s ease, padding .2s ease, margin .2s ease, border-width .2s ease;
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+  border-width:0 !important;
+  transition:max-height .3s ease, padding .25s ease, margin .25s ease, border-width .25s ease;
 }
 .form-collapsible.open{
-  max-height:600px;
+  max-height:1200px;
   margin-bottom:1.25rem;
-  padding-top:1.25rem;padding-bottom:1.25rem;
-  border-width:1px;
+  padding-top:1.25rem !important;
+  padding-bottom:1.25rem !important;
+  border-width:1px !important;
 }
 
 /* Form */
@@ -350,11 +352,17 @@ tr:hover td{background:var(--cream)}
   <!-- ===== PAGE: 備料食材 ===== -->
   <div id="page-prep" class="page">
     <div class="page-header">
-      <h2>備料食材</h2>
-      <p class="page-desc">記錄麵糰、餡料等備料的成分組成，計算每克成本</p>
+      <div class="page-header-row">
+        <div>
+          <h2>備料食材</h2>
+          <p class="page-desc">記錄麵糰、餡料等備料的成分組成，計算每克成本</p>
+        </div>
+        <button class="btn-toggle-form" id="prep-form-toggle" onclick="togglePrepForm()">
+          <span id="prep-form-toggle-icon">＋</span> 新增備料
+        </button>
+      </div>
     </div>
-    <div class="form-card">
-      <div class="form-title" id="prep-form-title">＋ 新增備料</div>
+    <div class="form-card form-collapsible" id="prep-form-card">
       <div class="form-grid g-prep">
         <div class="field" id="f-prep-name-wrap">
           <label>備料名稱</label>
@@ -385,7 +393,7 @@ tr:hover td{background:var(--cream)}
       </div>
       <div class="form-footer">
         <button class="btn-primary" id="prep-submit-btn" onclick="submitPrep()">新增</button>
-        <button class="btn-cancel hidden" id="prep-cancel-btn" onclick="cancelPrep()">取消</button>
+        <button class="btn-cancel" id="prep-cancel-btn" onclick="cancelPrep()">取消</button>
       </div>
     </div>
     <div class="list-header">
@@ -402,11 +410,17 @@ tr:hover td{background:var(--cream)}
   <!-- ===== PAGE: 成品成本 ===== -->
   <div id="page-finished" class="page">
     <div class="page-header">
-      <h2>成品成本</h2>
-      <p class="page-desc">組合原料與備料，計算成品成本與毛利率</p>
+      <div class="page-header-row">
+        <div>
+          <h2>成品成本</h2>
+          <p class="page-desc">組合原料與備料，計算成品成本與毛利率</p>
+        </div>
+        <button class="btn-toggle-form" id="fin-form-toggle" onclick="toggleFinForm()">
+          <span id="fin-form-toggle-icon">＋</span> 新增成品
+        </button>
+      </div>
     </div>
-    <div class="form-card">
-      <div class="form-title" id="fin-form-title">＋ 新增成品</div>
+    <div class="form-card form-collapsible" id="fin-form-card">
       <div class="form-grid g-fin">
         <div class="field" id="f-fin-name-wrap">
           <label>成品名稱</label>
@@ -458,7 +472,7 @@ tr:hover td{background:var(--cream)}
       </div>
       <div class="form-footer">
         <button class="btn-primary" id="fin-submit-btn" onclick="submitFin()">新增</button>
-        <button class="btn-cancel hidden" id="fin-cancel-btn" onclick="cancelFin()">取消</button>
+        <button class="btn-cancel" id="fin-cancel-btn" onclick="cancelFin()">取消</button>
       </div>
     </div>
     <div class="list-header">
@@ -870,23 +884,42 @@ window.showPage=(id,btn)=>{
 }
 
 // ===== 收合表單 =====
-let _rawFormOpen = false
+function _toggleForm(cardId, toggleBtnId, iconId, label, isOpen){
+  const card=document.getElementById(cardId)
+  const btn=document.getElementById(toggleBtnId)
+  const icon=document.getElementById(iconId)
+  card.classList.toggle('open', isOpen)
+  btn.classList.toggle('active', isOpen)
+  icon.textContent=isOpen?'－':'＋'
+  btn.innerHTML=`<span id="${iconId}">${isOpen?'－':'＋'}</span> ${label}`
+}
+
+let _rawFormOpen=false
 window.toggleRawForm=()=>{
   _rawFormOpen=!_rawFormOpen
-  const card=document.getElementById('raw-form-card')
-  const btn=document.getElementById('raw-form-toggle')
-  const icon=document.getElementById('raw-form-toggle-icon')
-  card.classList.toggle('open', _rawFormOpen)
-  btn.classList.toggle('active', _rawFormOpen)
-  icon.textContent=_rawFormOpen?'－':'＋'
-  if(_rawFormOpen) setTimeout(()=>document.getElementById('f-raw-name').focus(), 250)
+  _toggleForm('raw-form-card','raw-form-toggle','raw-form-toggle-icon','新增原料',_rawFormOpen)
+  if(_rawFormOpen) setTimeout(()=>document.getElementById('f-raw-name').focus(),300)
 }
-function openRawForm(){
-  if(!_rawFormOpen) toggleRawForm()
+function openRawForm(){  if(!_rawFormOpen) window.toggleRawForm() }
+function closeRawForm(){ if(_rawFormOpen)  window.toggleRawForm() }
+
+let _prepFormOpen=false
+window.togglePrepForm=()=>{
+  _prepFormOpen=!_prepFormOpen
+  _toggleForm('prep-form-card','prep-form-toggle','prep-form-toggle-icon','新增備料',_prepFormOpen)
+  if(_prepFormOpen) setTimeout(()=>document.getElementById('f-prep-name').focus(),300)
 }
-function closeRawForm(){
-  if(_rawFormOpen) toggleRawForm()
+function openPrepForm(){  if(!_prepFormOpen) window.togglePrepForm() }
+function closePrepForm(){ if(_prepFormOpen)  window.togglePrepForm() }
+
+let _finFormOpen=false
+window.toggleFinForm=()=>{
+  _finFormOpen=!_finFormOpen
+  _toggleForm('fin-form-card','fin-form-toggle','fin-form-toggle-icon','新增成品',_finFormOpen)
+  if(_finFormOpen) setTimeout(()=>document.getElementById('f-fin-name').focus(),300)
 }
+function openFinForm(){  if(!_finFormOpen) window.toggleFinForm() }
+function closeFinForm(){ if(_finFormOpen)  window.toggleFinForm() }
 
 // ===== Search helpers =====
 window.clearSearch=(inputId,clearId)=>{
@@ -1087,7 +1120,6 @@ window.submitRaw=async()=>{
     await addDoc(collection(db,'rawIngredients'),{...payload,sortOrder,createdAt:serverTimestamp()})
   }
   clearRawForm()
-  closeRawForm()
   document.getElementById('raw-submit-btn').disabled=false
 }
 
@@ -1102,7 +1134,7 @@ window.editRaw=(id)=>{
   const raw_labels=r.labels||[]
   window._rawSelectedLabels=raw_labels.map(l=>typeof l==='string'?l:l.name)
   renderSelectedLabels()
-  document.getElementById('raw-form-toggle').textContent='✏️ 編輯原料'
+  document.getElementById('raw-form-toggle').innerHTML=`<span id="raw-form-toggle-icon">－</span> ✏️ 編輯原料`
   document.getElementById('raw-submit-btn').textContent='儲存'
   openRawForm()
 }
@@ -1116,8 +1148,7 @@ function clearRawForm(){
   document.getElementById('f-raw-unit').value='kg'
   window._rawSelectedLabels=[]
   renderSelectedLabels()
-  const toggleBtn=document.getElementById('raw-form-toggle')
-  toggleBtn.innerHTML='<span id="raw-form-toggle-icon">＋</span> 新增原料'
+  _toggleForm('raw-form-card','raw-form-toggle','raw-form-toggle-icon','新增原料',_rawFormOpen)
   document.getElementById('raw-submit-btn').textContent='新增'
   ;['f-raw-name-wrap','f-raw-qty-wrap','f-raw-price-wrap'].forEach(id=>document.getElementById(id).classList.remove('err'))
 }
@@ -1211,11 +1242,11 @@ window.editPrep=(id)=>{
   window._prepIngs=[...(p.ingredients||[])]
   renderPrepTags()
   updatePrepPreview()
-  document.getElementById('prep-form-title').textContent='✏️ 編輯備料'
+  document.getElementById('prep-form-toggle').innerHTML=`<span id="prep-form-toggle-icon">－</span> ✏️ 編輯備料`
   document.getElementById('prep-submit-btn').textContent='儲存'
-  document.getElementById('prep-cancel-btn').classList.remove('hidden')
+  openPrepForm()
 }
-window.cancelPrep=()=>{ window._editPrepId=null; clearPrepForm() }
+window.cancelPrep=()=>{ window._editPrepId=null; clearPrepForm(); closePrepForm() }
 function clearPrepForm(){
   document.getElementById('f-prep-name').value=''
   document.getElementById('f-prep-total').value=''
@@ -1223,9 +1254,8 @@ function clearPrepForm(){
   window._prepIngs=[]
   renderPrepTags()
   document.getElementById('prep-preview').classList.add('hidden')
-  document.getElementById('prep-form-title').textContent='＋ 新增備料'
+  _toggleForm('prep-form-card','prep-form-toggle','prep-form-toggle-icon','新增備料',_prepFormOpen)
   document.getElementById('prep-submit-btn').textContent='新增'
-  document.getElementById('prep-cancel-btn').classList.add('hidden')
 }
 window.delPrep=async(id)=>{ await deleteDoc(doc(db,'prepItems',id)) }
 
@@ -1339,11 +1369,11 @@ window.editFin=(id)=>{
   document.getElementById('f-fin-margin').value=f.targetMargin||60
   window._finIngs=[...(f.ingredients||[])]
   renderFinTags(); updateFinPreview()
-  document.getElementById('fin-form-title').textContent='✏️ 編輯成品'
+  document.getElementById('fin-form-toggle').innerHTML=`<span id="fin-form-toggle-icon">－</span> ✏️ 編輯成品`
   document.getElementById('fin-submit-btn').textContent='儲存'
-  document.getElementById('fin-cancel-btn').classList.remove('hidden')
+  openFinForm()
 }
-window.cancelFin=()=>{ window._editFinId=null; clearFinForm() }
+window.cancelFin=()=>{ window._editFinId=null; clearFinForm(); closeFinForm() }
 function clearFinForm(){
   document.getElementById('f-fin-name').value=''
   document.getElementById('f-fin-price').value=''
@@ -1352,9 +1382,8 @@ function clearFinForm(){
   window._finIngs=[]
   renderFinTags()
   document.getElementById('fin-preview-row').classList.add('hidden')
-  document.getElementById('fin-form-title').textContent='＋ 新增成品'
+  _toggleForm('fin-form-card','fin-form-toggle','fin-form-toggle-icon','新增成品',_finFormOpen)
   document.getElementById('fin-submit-btn').textContent='新增'
-  document.getElementById('fin-cancel-btn').classList.add('hidden')
 }
 window.delFin=async(id)=>{ await deleteDoc(doc(db,'finishedProducts',id)) }
 
