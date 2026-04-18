@@ -53,6 +53,31 @@ body{font-family:'Noto Sans TC',system-ui,sans-serif;background:var(--cream);col
   margin-bottom:4px;
   box-shadow:0 4px 8px -4px rgba(61,43,31,.08);
 }
+.page-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.btn-toggle-form{
+  height:36px;padding:0 16px;
+  background:var(--amber);color:#fff;
+  border:none;border-radius:var(--radius-sm);
+  font-size:14px;font-family:inherit;font-weight:500;
+  cursor:pointer;white-space:nowrap;flex-shrink:0;
+  transition:background .15s;
+}
+.btn-toggle-form:hover{background:var(--brown-md)}
+.btn-toggle-form.active{background:var(--brown-md)}
+.form-collapsible{
+  overflow:hidden;
+  max-height:0;
+  margin-bottom:0;
+  padding-top:0;padding-bottom:0;
+  border-width:0;
+  transition:max-height .25s ease, padding .2s ease, margin .2s ease, border-width .2s ease;
+}
+.form-collapsible.open{
+  max-height:600px;
+  margin-bottom:1.25rem;
+  padding-top:1.25rem;padding-bottom:1.25rem;
+  border-width:1px;
+}
 
 /* Form */
 .form-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem;box-shadow:var(--shadow)}
@@ -262,11 +287,17 @@ tr:hover td{background:var(--cream)}
   <div id="page-raw" class="page active">
     <div class="raw-sticky">
       <div class="page-header">
-        <h2>原料食材</h2>
-        <p class="page-desc">記錄每種原料的進貨量與價格，系統自動計算單位成本</p>
+        <div class="page-header-row">
+          <div>
+            <h2>原料食材</h2>
+            <p class="page-desc">記錄每種原料的進貨量與價格，系統自動計算單位成本</p>
+          </div>
+          <button class="btn-toggle-form" id="raw-form-toggle" onclick="toggleRawForm()">
+            <span id="raw-form-toggle-icon">＋</span> 新增原料
+          </button>
+        </div>
       </div>
-      <div class="form-card">
-        <div class="form-title" id="raw-form-title">＋ 新增原料</div>
+      <div class="form-card form-collapsible hidden" id="raw-form-card">
         <div class="form-grid g-raw">
           <div class="field" id="f-raw-name-wrap">
             <label>原料品名</label>
@@ -291,7 +322,7 @@ tr:hover td{background:var(--cream)}
           </div>
           <div class="field form-actions">
             <button class="btn-primary" id="raw-submit-btn" onclick="submitRaw()">新增</button>
-            <button class="btn-cancel hidden" id="raw-cancel-btn" onclick="cancelRaw()">取消</button>
+            <button class="btn-cancel" id="raw-cancel-btn" onclick="cancelRaw()">取消</button>
           </div>
         </div>
         <div class="label-bar">
@@ -838,6 +869,25 @@ window.showPage=(id,btn)=>{
   btn.classList.add('active')
 }
 
+// ===== 收合表單 =====
+let _rawFormOpen = false
+window.toggleRawForm=()=>{
+  _rawFormOpen=!_rawFormOpen
+  const card=document.getElementById('raw-form-card')
+  const btn=document.getElementById('raw-form-toggle')
+  const icon=document.getElementById('raw-form-toggle-icon')
+  card.classList.toggle('open', _rawFormOpen)
+  btn.classList.toggle('active', _rawFormOpen)
+  icon.textContent=_rawFormOpen?'－':'＋'
+  if(_rawFormOpen) setTimeout(()=>document.getElementById('f-raw-name').focus(), 250)
+}
+function openRawForm(){
+  if(!_rawFormOpen) toggleRawForm()
+}
+function closeRawForm(){
+  if(_rawFormOpen) toggleRawForm()
+}
+
 // ===== Search helpers =====
 window.clearSearch=(inputId,clearId)=>{
   document.getElementById(inputId).value=''
@@ -1037,6 +1087,7 @@ window.submitRaw=async()=>{
     await addDoc(collection(db,'rawIngredients'),{...payload,sortOrder,createdAt:serverTimestamp()})
   }
   clearRawForm()
+  closeRawForm()
   document.getElementById('raw-submit-btn').disabled=false
 }
 
@@ -1048,24 +1099,27 @@ window.editRaw=(id)=>{
   document.getElementById('f-raw-qty').value=r.qty
   document.getElementById('f-raw-unit').value=r.unit
   document.getElementById('f-raw-price').value=r.price
-  // labels 可能是舊格式（物件陣列）或新格式（字串陣列），統一轉成字串陣列
   const raw_labels=r.labels||[]
   window._rawSelectedLabels=raw_labels.map(l=>typeof l==='string'?l:l.name)
   renderSelectedLabels()
-  document.getElementById('raw-form-title').textContent='✏️ 編輯原料'
+  document.getElementById('raw-form-toggle').textContent='✏️ 編輯原料'
   document.getElementById('raw-submit-btn').textContent='儲存'
-  document.getElementById('raw-cancel-btn').classList.remove('hidden')
+  openRawForm()
 }
-window.cancelRaw=()=>{ window._editRawId=null; clearRawForm() }
+window.cancelRaw=()=>{
+  window._editRawId=null
+  clearRawForm()
+  closeRawForm()
+}
 function clearRawForm(){
   ['f-raw-name','f-raw-qty','f-raw-price'].forEach(id=>document.getElementById(id).value='')
   document.getElementById('f-raw-unit').value='kg'
   window._rawSelectedLabels=[]
   renderSelectedLabels()
-  document.getElementById('raw-form-title').textContent='＋ 新增原料'
+  const toggleBtn=document.getElementById('raw-form-toggle')
+  toggleBtn.innerHTML='<span id="raw-form-toggle-icon">＋</span> 新增原料'
   document.getElementById('raw-submit-btn').textContent='新增'
-  document.getElementById('raw-cancel-btn').classList.add('hidden')
-  ;['f-raw-name-wrap','f-raw-qty-wrap','f-raw-price-wrap'].forEach(id=>{ document.getElementById(id).classList.remove('err') })
+  ;['f-raw-name-wrap','f-raw-qty-wrap','f-raw-price-wrap'].forEach(id=>document.getElementById(id).classList.remove('err'))
 }
 window.delRaw=async(id)=>{ await deleteDoc(doc(db,'rawIngredients',id)) }
 
