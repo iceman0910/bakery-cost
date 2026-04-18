@@ -544,7 +544,7 @@ window.closeLabelModal=()=>{
   document.getElementById('label-modal-overlay').classList.add('hidden')
 }
 window.saveLabelModal=()=>{
-  // 把改好的資料存回去，同時更新 preset 選取狀態
+  syncModalInputs()
   window._rawSelectedLabels=_modalLabels.map(l=>({...l}))
   document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>{
     el.classList.toggle('selected', window._rawSelectedLabels.some(l=>l.name===el.dataset.name))
@@ -572,16 +572,23 @@ function renderModalList(){
 
 window.updateModalLabelName=(i,val)=>{
   _modalLabels[i].name=val
-  // 即時更新左側顯示的 chip
-  const chips=document.querySelectorAll('#label-modal-list .raw-label')
-  if(chips[i]) chips[i].textContent=val||'　'
 }
 window.deleteModalLabel=(i)=>{
+  // 先把 input 的當前值同步回來，避免 DOM 和資料不一致
+  syncModalInputs()
   _modalLabels.splice(i,1)
   renderModalList()
 }
 
+function syncModalInputs(){
+  document.querySelectorAll('#label-modal-list .label-edit-input').forEach(inp=>{
+    const i=parseInt(inp.dataset.idx)
+    if(_modalLabels[i]!==undefined) _modalLabels[i].name=inp.value
+  })
+}
+
 window.onModalLabelDragStart=(e,i)=>{
+  syncModalInputs()
   _modalDragIdx=i
   setTimeout(()=>e.target.classList.add('dragging'),0)
 }
@@ -596,13 +603,6 @@ window.onModalLabelDrop=(e,toIdx)=>{
   _modalLabels.splice(toIdx,0,moved)
   _modalDragIdx=null
   renderModalList()
-}
-window.removeSelectedLabel=(i)=>{
-  const name=window._rawSelectedLabels[i].name
-  window._rawSelectedLabels.splice(i,1)
-  // 取消 preset 的選取狀態
-  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>{ if(el.dataset.name===name) el.classList.remove('selected') })
-  renderSelectedLabels()
 }
 
 function fmtTime(ts){
