@@ -653,25 +653,48 @@ window.closeLabelEditor=()=>{
 }
 
 window.saveLabelEditor=async()=>{
-  // 同步所有 input 當前值
+  // 先收集改名對照表
+  const renameMap={}  // { oldName: newName }
   document.querySelectorAll('#le-preset-list .le-name-input').forEach(inp=>{
     const i=parseInt(inp.dataset.idx)
     if(_leLabels[i]!==undefined){
       const newName=inp.value.trim()
       if(newName){
         const oldName=_leLabels[i].name
-        if(oldName!==newName){
-          const si=window._rawSelectedLabels.indexOf(oldName)
-          if(si>=0) window._rawSelectedLabels[si]=newName
-        }
+        if(oldName!==newName) renameMap[oldName]=newName
         _leLabels[i].name=newName
       }
     }
   })
-  const validNames=_leLabels.map(l=>l.name)
-  window._rawSelectedLabels=window._rawSelectedLabels.filter(n=>validNames.includes(n))
+
+  // 同步表單已選標籤
+  window._rawSelectedLabels=window._rawSelectedLabels
+    .map(n=>renameMap[n]||n)
+    .filter(n=>_leLabels.some(l=>l.name===n))
+
   _allLabels=[..._leLabels]
   await saveLabelsToFirestore()
+
+  // 同步更新所有已儲存原料的標籤名稱
+  if(Object.keys(renameMap).length>0){
+    const affected=window._raw.filter(r=>
+      (r.labels||[]).some(l=>{
+        const name=typeof l==='string'?l:l.name
+        return renameMap[name]!==undefined
+      })
+    )
+    if(affected.length>0){
+      const updates=affected.map(r=>{
+        const newLabels=(r.labels||[]).map(l=>{
+          const name=typeof l==='string'?l:l.name
+          return renameMap[name]||name
+        })
+        return updateDoc(doc(db,'rawIngredients',r.id),{labels:newLabels})
+      })
+      await Promise.all(updates)
+    }
+  }
+
   renderSelectedLabels()
   closeLabelEditor()
 }
