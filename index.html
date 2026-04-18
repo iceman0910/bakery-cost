@@ -163,6 +163,9 @@ tr:hover td{background:var(--cream)}
 .td-cost{font-weight:500;color:var(--amber);font-family:'DM Mono',monospace;font-size:13px}
 .td-actions{display:flex;gap:6px;align-items:center}
 .td-ings{max-width:200px}
+.td-ings-detail{min-width:160px}
+.ing-detail-row{display:flex;align-items:center;gap:6px;margin:2px 0}
+.ing-cost{font-size:12px;color:var(--amber);font-family:'DM Mono',monospace;white-space:nowrap}
 .ing-chip{display:inline-block;background:var(--cream2);border-radius:4px;padding:1px 6px;font-size:12px;color:var(--text-sec);margin:1px 2px}
 .ing-chip-prep{background:var(--amber-bg);color:#7a4f18}
 .margin-good{color:var(--green);font-weight:500}
@@ -396,6 +399,14 @@ tr:hover td{background:var(--cream)}
         <button class="btn-primary" id="prep-submit-btn" onclick="submitPrep()">新增</button>
         <button class="btn-cancel" id="prep-cancel-btn" onclick="cancelPrep()">取消</button>
       </div>
+      <div class="label-bar">
+        <div class="label-bar-top">
+          <span class="form-section-title" style="margin:0">標籤</span>
+          <button class="btn-edit-labels" onclick="openPrepLabelEditor()">✎ 編輯標籤</button>
+        </div>
+        <div id="prep-all-labels" class="raw-all-labels"></div>
+        <div id="prep-no-label" class="no-label-hint hidden">尚無標籤，請點「編輯標籤」新增</div>
+      </div>
     </div>
     <div class="list-header">
       <div class="search-wrap">
@@ -405,6 +416,7 @@ tr:hover td{background:var(--cream)}
       </div>
       <span class="count" id="prep-count"></span>
     </div>
+    <div class="raw-filter-labels" id="prep-filter-labels"></div>
     <div id="prep-list"></div>
   </div>
 
@@ -476,6 +488,14 @@ tr:hover td{background:var(--cream)}
         <button class="btn-primary" id="fin-submit-btn" onclick="submitFin()">新增</button>
         <button class="btn-cancel" id="fin-cancel-btn" onclick="cancelFin()">取消</button>
       </div>
+      <div class="label-bar">
+        <div class="label-bar-top">
+          <span class="form-section-title" style="margin:0">標籤</span>
+          <button class="btn-edit-labels" onclick="openFinLabelEditor()">✎ 編輯標籤</button>
+        </div>
+        <div id="fin-all-labels" class="raw-all-labels"></div>
+        <div id="fin-no-label" class="no-label-hint hidden">尚無標籤，請點「編輯標籤」新增</div>
+      </div>
     </div>
     <div class="list-header">
       <div class="search-wrap">
@@ -485,6 +505,7 @@ tr:hover td{background:var(--cream)}
       </div>
       <span class="count" id="fin-count"></span>
     </div>
+    <div class="raw-filter-labels" id="fin-filter-labels"></div>
     <div id="fin-list"></div>
   </div>
 
@@ -497,6 +518,50 @@ tr:hover td{background:var(--cream)}
     <div class="confirm-btns">
       <button class="btn-cancel" onclick="closeConfirm()">取消</button>
       <button class="btn-danger" onclick="doConfirm()">刪除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Prep Label Editor Modal -->
+<div class="confirm-overlay hidden" id="prep-label-editor-overlay">
+  <div class="label-editor-box" onclick="event.stopPropagation()">
+    <div class="label-editor-header"><span class="label-modal-title">編輯備料標籤</span></div>
+    <div class="label-editor-section">
+      <div class="label-editor-section-title">標籤列表</div>
+      <div id="prep-le-list"></div>
+    </div>
+    <div class="label-editor-section">
+      <div class="label-editor-section-title">新增標籤</div>
+      <div class="ing-add-row">
+        <input id="prep-le-new-input" placeholder="輸入標籤名稱" style="flex:1">
+        <button class="btn-secondary" onclick="prepLeAddNew()">新增</button>
+      </div>
+    </div>
+    <div class="confirm-btns" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <button class="btn-cancel" onclick="closePrepLabelEditor()">取消</button>
+      <button class="btn-primary" onclick="savePrepLabelEditor()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fin Label Editor Modal -->
+<div class="confirm-overlay hidden" id="fin-label-editor-overlay">
+  <div class="label-editor-box" onclick="event.stopPropagation()">
+    <div class="label-editor-header"><span class="label-modal-title">編輯成品標籤</span></div>
+    <div class="label-editor-section">
+      <div class="label-editor-section-title">標籤列表</div>
+      <div id="fin-le-list"></div>
+    </div>
+    <div class="label-editor-section">
+      <div class="label-editor-section-title">新增標籤</div>
+      <div class="ing-add-row">
+        <input id="fin-le-new-input" placeholder="輸入標籤名稱" style="flex:1">
+        <button class="btn-secondary" onclick="finLeAddNew()">新增</button>
+      </div>
+    </div>
+    <div class="confirm-btns" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <button class="btn-cancel" onclick="closeFinLabelEditor()">取消</button>
+      <button class="btn-primary" onclick="saveFinLabelEditor()">儲存</button>
     </div>
   </div>
 </div>
@@ -816,6 +881,220 @@ window.leTouchEnd=(e,fromIdx)=>{
   _leTouchIdx=null
 }
 
+// ===== 備料/成品 標籤系統（共用工廠） =====
+function createLabelSystem({
+  storageKey, allLabelsId, noLabelId, filterLabelsId,
+  filterLabelStateKey, selectedLabelStateKey,
+  editorOverlayId, leListId, leNewInputId,
+  renderList, submitSave, collectionName
+}){
+  let _allLabels=[]
+  let _leLabels=[], _leDragIdx=null, _leTouchIdx=null, _leTouchClone=null, _leTouchOffY=0
+
+  async function loadLabels(){
+    try{
+      const snap=await getDoc(doc(db,'settings',storageKey))
+      _allLabels=snap.exists()&&snap.data().list?.length ? snap.data().list : []
+    }catch(e){ _allLabels=[] }
+    renderSelectedLabels()
+  }
+  async function saveToFirestore(){
+    try{ await setDoc(doc(db,'settings',storageKey),{list:_allLabels}) }catch(e){}
+  }
+
+  function renderSelectedLabels(){
+    const allEl=document.getElementById(allLabelsId)
+    const hint=document.getElementById(noLabelId)
+    if(!_allLabels.length){ allEl.innerHTML=''; hint.classList.remove('hidden'); return }
+    hint.classList.add('hidden')
+    const sel=window[selectedLabelStateKey]||[]
+    allEl.innerHTML=_allLabels.map(l=>{
+      const isOn=sel.includes(l.name)
+      return `<span class="raw-label lc-${l.color} label-toggle ${isOn?'label-on':''}"
+        onclick="window.__ls_${storageKey}_toggle('${l.name.replace(/'/g,"\\'")}')">
+        ${l.name}${isOn?' ✓':''}
+      </span>`
+    }).join('')
+  }
+
+  function renderFilterLabels(){
+    const names=new Set()
+    const dataList=collectionName==='prepItems'?window._prep:window._fin
+    dataList.forEach(item=>(item.labels||[]).forEach(l=>names.add(typeof l==='string'?l:l.name)))
+    const el=document.getElementById(filterLabelsId)
+    if(!names.size){ el.innerHTML=''; return }
+    const cur=window[filterLabelStateKey]
+    el.innerHTML=`<span class="raw-label lc-6 filter-label ${cur===null?'on':''}"
+      onclick="window.__ls_${storageKey}_setFilter(null)">全部</span>`
+      +[...names].map(name=>{
+        const meta=_allLabels.find(x=>x.name===name)
+        const color=meta?meta.color:0
+        return `<span class="raw-label lc-${color} filter-label ${cur===name?'on':''}"
+          onclick="window.__ls_${storageKey}_setFilter('${name.replace(/'/g,"\\'")}')">
+          ${name}</span>`
+      }).join('')
+  }
+
+  function renderLeList(){
+    const el=document.getElementById(leListId)
+    if(!_leLabels.length){ el.innerHTML=`<div class="le-empty">尚無標籤，請在下方新增</div>`; return }
+    el.innerHTML=_leLabels.map((l,i)=>`
+      <div class="le-item" draggable="true"
+        ondragstart="window.__ls_${storageKey}_leDrag(${i})"
+        ondragover="event.preventDefault()"
+        ondrop="window.__ls_${storageKey}_leDrop(event,${i})"
+        ondragend="document.querySelectorAll('.le-item').forEach(e=>e.classList.remove('dragging'))"
+        ontouchstart="window.__ls_${storageKey}_leTouch(event,${i})"
+        ontouchmove="window.__ls_${storageKey}_leTouchMove(event)"
+        ontouchend="window.__ls_${storageKey}_leTouchEnd(event,${i})">
+        <span class="le-drag">⠿</span>
+        <span class="raw-label lc-${l.color} le-chip">${l.name}</span>
+        <input class="le-name-input" data-idx="${i}" value="${l.name}"
+          oninput="window.__ls_${storageKey}_leUpdate(${i},this.value)">
+        <button class="le-del-btn" onclick="window.__ls_${storageKey}_leDel(${i})">×</button>
+      </div>`).join('')
+  }
+
+  function syncInputs(){
+    document.querySelectorAll(`#${leListId} .le-name-input`).forEach(inp=>{
+      const i=parseInt(inp.dataset.idx)
+      if(_leLabels[i]) _leLabels[i].name=inp.value.trim()||_leLabels[i].name
+    })
+  }
+
+  // 暴露到 window
+  window[`__ls_${storageKey}_toggle`]=(name)=>{
+    const arr=window[selectedLabelStateKey]||[]
+    const idx=arr.indexOf(name)
+    if(idx>=0) arr.splice(idx,1); else arr.push(name)
+    window[selectedLabelStateKey]=arr
+    renderSelectedLabels()
+  }
+  window[`__ls_${storageKey}_setFilter`]=(name)=>{
+    window[filterLabelStateKey]=name
+    renderFilterLabels()
+    renderList()
+  }
+  window[`__ls_${storageKey}_leUpdate`]=(i,val)=>{
+    _leLabels[i].name=val
+    const chips=document.querySelectorAll(`#${leListId} .le-chip`)
+    if(chips[i]) chips[i].textContent=val||'…'
+  }
+  window[`__ls_${storageKey}_leDel`]=(i)=>{ syncInputs(); _leLabels.splice(i,1); renderLeList() }
+  window[`__ls_${storageKey}_leDrag`]=(i)=>{ syncInputs(); _leDragIdx=i; setTimeout(()=>document.querySelectorAll('.le-item')[i]?.classList.add('dragging'),0) }
+  window[`__ls_${storageKey}_leDrop`]=(e,toIdx)=>{
+    e.preventDefault()
+    if(_leDragIdx===null||_leDragIdx===toIdx) return
+    const [moved]=_leLabels.splice(_leDragIdx,1); _leLabels.splice(toIdx,0,moved); _leDragIdx=null; renderLeList()
+  }
+  window[`__ls_${storageKey}_leTouch`]=(e,i)=>{
+    e.stopPropagation(); syncInputs(); _leTouchIdx=i
+    const row=e.target.closest('.le-item'); const rect=row.getBoundingClientRect(); _leTouchOffY=e.touches[0].clientY-rect.top
+    _leTouchClone=row.cloneNode(true)
+    _leTouchClone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:.85;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);border-radius:6px;z-index:9999;pointer-events:none;`
+    document.body.appendChild(_leTouchClone); row.style.opacity='.3'
+  }
+  window[`__ls_${storageKey}_leTouchMove`]=(e)=>{
+    if(!_leTouchClone) return; e.preventDefault()
+    const t=e.touches[0]; _leTouchClone.style.top=(t.clientY-_leTouchOffY)+'px'
+    _leTouchClone.style.display='none'; const under=document.elementFromPoint(t.clientX,t.clientY); _leTouchClone.style.display=''
+    document.querySelectorAll('.le-item').forEach(el=>el.classList.remove('drag-over'))
+    under?.closest('.le-item')?.classList.add('drag-over')
+  }
+  window[`__ls_${storageKey}_leTouchEnd`]=(e,fromIdx)=>{
+    if(_leTouchClone){ _leTouchClone.remove(); _leTouchClone=null }
+    document.querySelectorAll('.le-item').forEach(el=>{ el.style.opacity=''; el.classList.remove('drag-over') })
+    const under=document.elementFromPoint(e.changedTouches[0].clientX,e.changedTouches[0].clientY)
+    const targetItem=under?.closest('.le-item[draggable]')
+    if(targetItem){
+      const items=[...document.querySelectorAll('.le-item')]
+      const toIdx=items.indexOf(targetItem)
+      if(toIdx>=0&&toIdx!==fromIdx){ const [m]=_leLabels.splice(fromIdx,1); _leLabels.splice(toIdx,0,m); renderLeList() }
+    }
+    _leTouchIdx=null
+  }
+
+  return {
+    openEditor: ()=>{
+      _leLabels=_allLabels.map(l=>({...l}))
+      renderLeList()
+      document.getElementById(leNewInputId).value=''
+      document.getElementById(editorOverlayId).classList.remove('hidden')
+    },
+    closeEditor: ()=>document.getElementById(editorOverlayId).classList.add('hidden'),
+    saveEditor: async()=>{
+      syncInputs()
+      // 改名對照
+      const renameMap={}
+      _allLabels.forEach((old,i)=>{ if(_leLabels[i]&&old.name!==_leLabels[i].name) renameMap[old.name]=_leLabels[i].name })
+      // 同步已選
+      window[selectedLabelStateKey]=(window[selectedLabelStateKey]||[]).map(n=>renameMap[n]||n).filter(n=>_leLabels.some(l=>l.name===n))
+      _allLabels=[..._leLabels]
+      await saveToFirestore()
+      // 更新 Firestore 中的項目標籤
+      if(Object.keys(renameMap).length){
+        const dataList=collectionName==='prepItems'?window._prep:window._fin
+        const affected=dataList.filter(item=>(item.labels||[]).some(l=>renameMap[typeof l==='string'?l:l.name]))
+        await Promise.all(affected.map(item=>{
+          const newLabels=(item.labels||[]).map(l=>{ const n=typeof l==='string'?l:l.name; return renameMap[n]||n })
+          return updateDoc(doc(db,collectionName,item.id),{labels:newLabels})
+        }))
+      }
+      renderSelectedLabels(); renderFilterLabels()
+      document.getElementById(editorOverlayId).classList.add('hidden')
+    },
+    addNew: ()=>{
+      const inp=document.getElementById(leNewInputId)
+      const name=inp.value.trim()
+      if(!name||_leLabels.find(l=>l.name===name)) return
+      const usedColors=_leLabels.map(l=>l.color)
+      const color=LABEL_COLORS.find(c=>!usedColors.includes(c))??(_leLabels.length%8)
+      syncInputs(); _leLabels.push({name,color}); inp.value=''; renderLeList()
+    },
+    getSelectedLabels: ()=>window[selectedLabelStateKey]||[],
+    clearSelected: ()=>{ window[selectedLabelStateKey]=[]; renderSelectedLabels() },
+    restoreSelected: (labels)=>{ window[selectedLabelStateKey]=labels; renderSelectedLabels() },
+    getAllLabels: ()=>_allLabels,
+    renderFilter: renderFilterLabels,
+    renderSelected: renderSelectedLabels,
+    load: loadLabels
+  }
+}
+
+// 初始化備料/成品標籤系統
+window._prepSelectedLabels=[]
+window._prepFilterLabel=null
+window._finSelectedLabels=[]
+window._finFilterLabel=null
+
+const prepLS=createLabelSystem({
+  storageKey:'prepLabels', allLabelsId:'prep-all-labels', noLabelId:'prep-no-label',
+  filterLabelsId:'prep-filter-labels', filterLabelStateKey:'_prepFilterLabel',
+  selectedLabelStateKey:'_prepSelectedLabels', editorOverlayId:'prep-label-editor-overlay',
+  leListId:'prep-le-list', leNewInputId:'prep-le-new-input',
+  renderList:()=>renderPrep(), submitSave:null, collectionName:'prepItems'
+})
+const finLS=createLabelSystem({
+  storageKey:'finLabels', allLabelsId:'fin-all-labels', noLabelId:'fin-no-label',
+  filterLabelsId:'fin-filter-labels', filterLabelStateKey:'_finFilterLabel',
+  selectedLabelStateKey:'_finSelectedLabels', editorOverlayId:'fin-label-editor-overlay',
+  leListId:'fin-le-list', leNewInputId:'fin-le-new-input',
+  renderList:()=>renderFin(), submitSave:null, collectionName:'finishedProducts'
+})
+prepLS.load(); finLS.load()
+
+window.openPrepLabelEditor=()=>prepLS.openEditor()
+window.closePrepLabelEditor=()=>prepLS.closeEditor()
+window.savePrepLabelEditor=()=>prepLS.saveEditor()
+window.prepLeAddNew=()=>prepLS.addNew()
+document.getElementById('prep-le-new-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();prepLS.addNew()} })
+
+window.openFinLabelEditor=()=>finLS.openEditor()
+window.closeFinLabelEditor=()=>finLS.closeEditor()
+window.saveFinLabelEditor=()=>finLS.saveEditor()
+window.finLeAddNew=()=>finLS.addNew()
+document.getElementById('fin-le-new-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();finLS.addNew()} })
+
 function fmtTime(ts){
   if(!ts)return '—'
   const d=ts.toDate?ts.toDate():new Date(ts)
@@ -858,8 +1137,26 @@ onSnapshot(qRaw, snap => {
   window._raw=docs
   renderRaw(); renderFilterLabels(); updateSelects()
 })
-onSnapshot(qPrep, snap => { window._prep = snap.docs.map(d=>({id:d.id,...d.data()})); renderPrep(); updateSelects() })
-onSnapshot(qFin,  snap => { window._fin  = snap.docs.map(d=>({id:d.id,...d.data()})); renderFin() })
+onSnapshot(qPrep, snap => {
+  let docs=snap.docs.map(d=>({id:d.id,...d.data()}))
+  docs.sort((a,b)=>{
+    const ha=a.sortOrder!=null, hb=b.sortOrder!=null
+    if(ha&&hb) return a.sortOrder-b.sortOrder
+    if(ha) return -1; if(hb) return 1
+    return (a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0)
+  })
+  window._prep=docs; renderPrep(); updateSelects()
+})
+onSnapshot(qFin, snap => {
+  let docs=snap.docs.map(d=>({id:d.id,...d.data()}))
+  docs.sort((a,b)=>{
+    const ha=a.sortOrder!=null, hb=b.sortOrder!=null
+    if(ha&&hb) return a.sortOrder-b.sortOrder
+    if(ha) return -1; if(hb) return 1
+    return (a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0)
+  })
+  window._fin=docs; renderFin()
+})
 
 // ===== Calc =====
 function unitCostPerG(raw){
@@ -1166,6 +1463,76 @@ async function saveRawOrder(fromId, toId){
   await Promise.all(updates)
 }
 
+async function saveSortOrder(fromId, toId, list, collectionName){
+  const fromIdx=list.findIndex(r=>r.id===fromId)
+  const toIdx=list.findIndex(r=>r.id===toId)
+  if(fromIdx<0||toIdx<0)return
+  const reordered=[...list]
+  const [moved]=reordered.splice(fromIdx,1)
+  reordered.splice(toIdx,0,moved)
+  await Promise.all(reordered.map((r,i)=>updateDoc(doc(db,collectionName,r.id),{sortOrder:i})))
+}
+
+// ===== 備料/成品 共用拖曳排序 =====
+let _sortDragId=null, _sortTouchId=null, _sortTouchClone=null, _sortTouchOffY=0
+
+window.onSortDragStart=(e,id,type)=>{
+  _sortDragId=id
+  e.dataTransfer.effectAllowed='move'
+  setTimeout(()=>e.target.classList.add('dragging'),0)
+}
+window.onSortDragOver=(e)=>{ e.preventDefault(); e.dataTransfer.dropEffect='move' }
+window.onSortDragEnd=()=>{
+  document.querySelectorAll('.sort-row').forEach(r=>r.classList.remove('dragging','drag-over'))
+}
+window.onSortDrop=async(e,targetId,type)=>{
+  e.preventDefault()
+  if(!_sortDragId||_sortDragId===targetId)return
+  const list=type==='prep'?window._prep:window._fin
+  const col=type==='prep'?'prepItems':'finishedProducts'
+  await saveSortOrder(_sortDragId, targetId, list, col)
+  _sortDragId=null
+}
+
+window.onSortTouchStart=(e,id,type)=>{
+  e.preventDefault()
+  _sortTouchId=id
+  const row=e.target.closest('tr')
+  const rect=row.getBoundingClientRect()
+  _sortTouchOffY=e.touches[0].clientY-rect.top
+  _sortTouchClone=row.cloneNode(true)
+  _sortTouchClone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:.85;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);border-radius:6px;z-index:9999;pointer-events:none;`
+  document.body.appendChild(_sortTouchClone)
+  row.style.opacity='.3'
+}
+window.onSortTouchMove=(e)=>{
+  if(!_sortTouchClone)return
+  e.preventDefault()
+  const t=e.touches[0]
+  _sortTouchClone.style.top=(t.clientY-_sortTouchOffY)+'px'
+  _sortTouchClone.style.display='none'
+  const under=document.elementFromPoint(t.clientX,t.clientY)
+  _sortTouchClone.style.display=''
+  document.querySelectorAll('.sort-row').forEach(r=>r.classList.remove('drag-over'))
+  const targetRow=under?.closest('tr[data-id]')
+  if(targetRow&&targetRow.dataset.id!==_sortTouchId) targetRow.classList.add('drag-over')
+}
+window.onSortTouchEnd=async(e,type)=>{
+  if(!_sortTouchId)return
+  const touch=e.changedTouches[0]
+  if(_sortTouchClone){ _sortTouchClone.remove(); _sortTouchClone=null }
+  document.querySelectorAll('.sort-row').forEach(r=>{ r.style.opacity=''; r.classList.remove('drag-over') })
+  const under=document.elementFromPoint(touch.clientX,touch.clientY)
+  const targetRow=under?.closest('tr[data-id]')
+  const targetId=targetRow?.dataset.id
+  if(targetId&&targetId!==_sortTouchId){
+    const list=type==='prep'?window._prep:window._fin
+    const col=type==='prep'?'prepItems':'finishedProducts'
+    await saveSortOrder(_sortTouchId, targetId, list, col)
+  }
+  _sortTouchId=null
+}
+
 window.submitRaw=async()=>{
   const name=document.getElementById('f-raw-name').value.trim()
   const qty=parseFloat(document.getElementById('f-raw-qty').value)
@@ -1249,22 +1616,44 @@ window.updatePrepPreview=()=>{
 
 window.renderPrep=()=>{
   const q=document.getElementById('prep-search').value||''
-  const list=window._prep.filter(p=>!q||p.name?.includes(q))
+  let list=window._prep.filter(p=>!q||p.name?.includes(q))
+  if(window._prepFilterLabel) list=list.filter(p=>(p.labels||[]).some(l=>(typeof l==='string'?l:l.name)===window._prepFilterLabel))
   document.getElementById('prep-count').textContent=`${list.length} 筆`
   const el=document.getElementById('prep-list')
   if(!list.length){
-    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🥣</div><p>${q?'找不到符合的備料':'尚無備料，請新增'}</p></div>`
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🥣</div><p>${q||window._prepFilterLabel?'找不到符合的備料':'尚無備料，請新增'}</p></div>`
     return
   }
+  const canSort=!q&&!window._prepFilterLabel
   el.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>備料名稱</th><th>成分</th><th>總重量</th><th>食材成本</th><th>每g成本</th><th></th></tr></thead>
+    <thead><tr>${canSort?'<th></th>':''}<th>備料名稱</th><th>標籤</th><th>成分明細</th><th>總重量</th><th>食材成本</th><th>每g成本</th><th></th></tr></thead>
     <tbody>${list.map(p=>{
       const cost=calcPrepCost(p.ingredients)
       const cpg=calcPrepCostPerG(p)
-      const ings=(p.ingredients||[]).map(i=>`<span class="ing-chip">${i.rawName} ${i.amount}g</span>`).join('')
-      return `<tr>
+      const ings=(p.ingredients||[]).map(i=>{
+        const raw=window._raw.find(r=>r.id===i.rawId)
+        const ingCost=raw?unitCostPerG(raw)*i.amount:0
+        return `<div class="ing-detail-row"><span class="ing-chip">${i.rawName} ${i.amount}g</span><span class="ing-cost">NT$ ${ingCost.toFixed(1)}</span></div>`
+      }).join('')
+      const allPrepLabels=prepLS.getAllLabels()
+      const labelsHtml=(p.labels||[]).map(lname=>{
+        const name=typeof lname==='string'?lname:lname.name
+        const meta=allPrepLabels.find(x=>x.name===name)
+        return `<span class="raw-label lc-${meta?meta.color:0}">${name}</span>`
+      }).join(' ')
+      return `<tr data-id="${p.id}" class="sort-row"
+        ${canSort?`draggable="true"
+          ondragstart="onSortDragStart(event,'${p.id}','prep')"
+          ondragover="onSortDragOver(event)"
+          ondrop="onSortDrop(event,'${p.id}','prep')"
+          ondragend="onSortDragEnd()"`:''}>
+        ${canSort?`<td class="td-drag"><span class="drag-handle"
+          ontouchstart="onSortTouchStart(event,'${p.id}','prep')"
+          ontouchmove="onSortTouchMove(event)"
+          ontouchend="onSortTouchEnd(event,'prep')">⠿</span></td>`:''}
         <td class="td-name">${p.name}</td>
-        <td class="td-ings">${ings||'—'}</td>
+        <td class="td-labels">${labelsHtml||'—'}</td>
+        <td class="td-ings-detail">${ings||'—'}</td>
         <td>${p.totalWeight}g</td>
         <td class="td-cost">NT$ ${cost.toFixed(1)}</td>
         <td class="td-cost">NT$ ${cpg.toFixed(4)}</td>
@@ -1275,6 +1664,7 @@ window.renderPrep=()=>{
       </tr>`
     }).join('')}</tbody>
   </table></div>`
+  prepLS.renderFilter()
 }
 
 window.submitPrep=async()=>{
@@ -1285,7 +1675,7 @@ window.submitPrep=async()=>{
   if(!total||total<=0){showErr('f-prep-total-wrap','e-prep-total','請輸入總重量');ok=false}else hideErr('f-prep-total-wrap','e-prep-total')
   if(!ok)return
   document.getElementById('prep-submit-btn').disabled=true
-  const payload={name,totalWeight:total,ingredients:window._prepIngs}
+  const payload={name,totalWeight:total,ingredients:window._prepIngs,labels:prepLS.getSelectedLabels()}
   if(window._editPrepId){
     await updateDoc(doc(db,'prepItems',window._editPrepId),payload)
     window._editPrepId=null
@@ -1303,8 +1693,8 @@ window.editPrep=(id)=>{
   document.getElementById('f-prep-name').value=p.name
   document.getElementById('f-prep-total').value=p.totalWeight
   window._prepIngs=[...(p.ingredients||[])]
-  renderPrepTags()
-  updatePrepPreview()
+  renderPrepTags(); updatePrepPreview()
+  prepLS.restoreSelected((p.labels||[]).map(l=>typeof l==='string'?l:l.name))
   document.getElementById('prep-form-toggle').innerHTML=`<span id="prep-form-toggle-icon">－</span> ✏️ 編輯備料`
   document.getElementById('prep-submit-btn').textContent='儲存'
   openPrepForm()
@@ -1316,6 +1706,7 @@ function clearPrepForm(){
   window._prepIngs=[]
   renderPrepTags()
   document.getElementById('prep-preview').classList.add('hidden')
+  prepLS.clearSelected()
   _toggleForm('prep-form-card','prep-form-toggle','prep-form-toggle-icon','新增備料',_prepFormOpen)
   document.getElementById('prep-submit-btn').textContent='新增'
 }
@@ -1368,23 +1759,41 @@ window.updateFinPreview=()=>{
 
 window.renderFin=()=>{
   const q=document.getElementById('fin-search').value||''
-  const list=window._fin.filter(f=>!q||f.name?.includes(q))
+  let list=window._fin.filter(f=>!q||f.name?.includes(q))
+  if(window._finFilterLabel) list=list.filter(f=>(f.labels||[]).some(l=>(typeof l==='string'?l:l.name)===window._finFilterLabel))
   document.getElementById('fin-count').textContent=`${list.length} 筆`
   const el=document.getElementById('fin-list')
   if(!list.length){
-    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🍞</div><p>${q?'找不到符合的成品':'尚無成品，請新增'}</p></div>`
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🍞</div><p>${q||window._finFilterLabel?'找不到符合的成品':'尚無成品，請新增'}</p></div>`
     return
   }
+  const canSort=!q&&!window._finFilterLabel
+  const allFinLabels=finLS.getAllLabels()
   el.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr><th>成品名稱</th><th>成分</th><th>食材成本</th><th>售價</th><th>毛利率</th><th>建議售價</th><th></th></tr></thead>
+    <thead><tr>${canSort?'<th></th>':''}<th>成品名稱</th><th>標籤</th><th>成分</th><th>食材成本</th><th>售價</th><th>毛利率</th><th>建議售價</th><th></th></tr></thead>
     <tbody>${list.map(f=>{
       const cost=calcFinCost(f.ingredients)*(f.quantity||1)
       const gm=f.salePrice>0?((f.salePrice-cost)/f.salePrice*100):null
       const sug=cost>0&&(f.targetMargin||60)<100?cost/(1-(f.targetMargin||60)/100):null
       const isGood=gm!==null&&gm>=(f.targetMargin||60)
       const ings=(f.ingredients||[]).map(i=>`<span class="ing-chip ${i.type==='prep'?'ing-chip-prep':''}">${i.name} ${i.amount}g</span>`).join('')
-      return `<tr>
+      const labelsHtml=(f.labels||[]).map(lname=>{
+        const name=typeof lname==='string'?lname:lname.name
+        const meta=allFinLabels.find(x=>x.name===name)
+        return `<span class="raw-label lc-${meta?meta.color:0}">${name}</span>`
+      }).join(' ')
+      return `<tr data-id="${f.id}" class="sort-row"
+        ${canSort?`draggable="true"
+          ondragstart="onSortDragStart(event,'${f.id}','fin')"
+          ondragover="onSortDragOver(event)"
+          ondrop="onSortDrop(event,'${f.id}','fin')"
+          ondragend="onSortDragEnd()"`:''}>
+        ${canSort?`<td class="td-drag"><span class="drag-handle"
+          ontouchstart="onSortTouchStart(event,'${f.id}','fin')"
+          ontouchmove="onSortTouchMove(event)"
+          ontouchend="onSortTouchEnd(event,'fin')">⠿</span></td>`:''}
         <td class="td-name">${f.name}</td>
+        <td class="td-labels">${labelsHtml||'—'}</td>
         <td class="td-ings">${ings||'—'}</td>
         <td class="td-cost">NT$ ${cost.toFixed(1)}</td>
         <td>${f.salePrice?`NT$ ${f.salePrice}`:'—'}</td>
@@ -1397,6 +1806,7 @@ window.renderFin=()=>{
       </tr>`
     }).join('')}</tbody>
   </table></div>`
+  finLS.renderFilter()
 }
 
 window.submitFin=async()=>{
@@ -1409,7 +1819,8 @@ window.submitFin=async()=>{
     salePrice:parseFloat(document.getElementById('f-fin-price').value)||0,
     quantity:parseInt(document.getElementById('f-fin-qty').value)||1,
     targetMargin:parseFloat(document.getElementById('f-fin-margin').value)||60,
-    ingredients:window._finIngs
+    ingredients:window._finIngs,
+    labels:finLS.getSelectedLabels()
   }
   if(window._editFinId){
     await updateDoc(doc(db,'finishedProducts',window._editFinId),payload)
@@ -1431,6 +1842,7 @@ window.editFin=(id)=>{
   document.getElementById('f-fin-margin').value=f.targetMargin||60
   window._finIngs=[...(f.ingredients||[])]
   renderFinTags(); updateFinPreview()
+  finLS.restoreSelected((f.labels||[]).map(l=>typeof l==='string'?l:l.name))
   document.getElementById('fin-form-toggle').innerHTML=`<span id="fin-form-toggle-icon">－</span> ✏️ 編輯成品`
   document.getElementById('fin-submit-btn').textContent='儲存'
   openFinForm()
@@ -1444,6 +1856,7 @@ function clearFinForm(){
   window._finIngs=[]
   renderFinTags()
   document.getElementById('fin-preview-row').classList.add('hidden')
+  finLS.clearSelected()
   _toggleForm('fin-form-card','fin-form-toggle','fin-form-toggle-icon','新增成品',_finFormOpen)
   document.getElementById('fin-submit-btn').textContent='新增'
 }
