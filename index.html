@@ -42,6 +42,9 @@ body{font-family:'Noto Sans TC',system-ui,sans-serif;background:var(--cream);col
 .page-header h2{font-size:20px;font-weight:600;color:var(--brown-dk)}
 .page-desc{font-size:13px;color:var(--text-sec);margin-top:2px}
 
+/* 原料頁面 sticky 表單 */
+.raw-sticky{position:sticky;top:56px;z-index:90;background:var(--cream);padding-bottom:12px}
+
 /* Form */
 .form-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem;box-shadow:var(--shadow)}
 .form-title{font-size:14px;font-weight:500;color:var(--text-sec);margin-bottom:1rem}
@@ -248,12 +251,13 @@ tr:hover td{background:var(--cream)}
 
   <!-- ===== PAGE: 原料食材 ===== -->
   <div id="page-raw" class="page active">
-    <div class="page-header">
-      <h2>原料食材</h2>
-      <p class="page-desc">記錄每種原料的進貨量與價格，系統自動計算單位成本</p>
-    </div>
-    <div class="form-card">
-      <div class="form-title" id="raw-form-title">＋ 新增原料</div>
+    <div class="raw-sticky">
+      <div class="page-header">
+        <h2>原料食材</h2>
+        <p class="page-desc">記錄每種原料的進貨量與價格，系統自動計算單位成本</p>
+      </div>
+      <div class="form-card">
+        <div class="form-title" id="raw-form-title">＋ 新增原料</div>
       <div class="form-grid g-raw">
         <div class="field" id="f-raw-name-wrap">
           <label>原料品名</label>
@@ -289,7 +293,7 @@ tr:hover td{background:var(--cream)}
         <div id="raw-all-labels" class="raw-all-labels"></div>
         <div id="raw-no-label" class="no-label-hint hidden">尚無標籤，請點「編輯標籤」新增</div>
       </div>
-    </div>
+    </div><!-- end raw-sticky -->
     <div class="list-header">
       <div class="search-wrap">
         <span class="search-icon">⌕</span>
