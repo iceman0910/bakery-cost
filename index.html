@@ -156,23 +156,36 @@ tr:hover td{background:var(--cream)}
 .raw-row.dragging{opacity:.4}
 .raw-row.drag-over td{background:var(--amber-bg)}
 
-/* 已選標籤列 */
-.selected-labels-bar{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
-.btn-manage-labels{height:30px;padding:0 12px;background:transparent;color:var(--brown-md);border:1px solid var(--border-md);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0}
-.btn-manage-labels:hover{background:var(--cream2)}
+/* 標籤列 */
+.label-bar{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;min-height:32px}
+.label-bar-left{display:flex;align-items:center;gap:6px;flex:1;flex-wrap:wrap}
+.selected-chips{display:flex;flex-wrap:wrap;gap:5px}
+.no-label-hint{font-size:13px;color:var(--text-hint)}
+.btn-edit-labels{height:30px;padding:0 12px;background:transparent;color:var(--brown-md);border:1px solid var(--border-md);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.btn-edit-labels:hover{background:var(--cream2)}
 
-/* 標籤 Modal */
-.label-modal-box{max-width:380px!important}
-.label-modal-title{font-size:16px;font-weight:600;color:var(--brown-dk);margin-bottom:4px}
-.label-modal-desc{font-size:12px;color:var(--text-sec);margin-bottom:12px}
-.modal-label-item{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:var(--radius-sm);user-select:none}
-.modal-label-item:hover{background:var(--cream2)}
-.modal-label-item.dragging{opacity:.4;background:var(--cream2)}
-.label-drag{color:var(--text-hint);cursor:grab;font-size:15px;flex-shrink:0}
-.label-drag:active{cursor:grabbing}
-.label-edit-input{flex:1;height:30px;font-size:13px;border:1px solid var(--border);border-radius:4px;padding:0 8px}
-.label-edit-input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 2px rgba(212,135,42,.15)}
-.label-action-btn{width:26px!important;height:26px!important;font-size:14px!important;flex-shrink:0}
+/* 標籤編輯器 Modal */
+.label-editor-box{background:#fff;border-radius:var(--radius-lg);padding:1.25rem;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-md)}
+.label-editor-header{margin-bottom:1rem}
+.label-editor-section{margin-bottom:1rem}
+.label-editor-section-title{font-size:12px;font-weight:500;color:var(--text-sec);margin-bottom:6px}
+.le-presets{display:flex;flex-wrap:wrap;gap:6px}
+.le-preset-btn{padding:4px 12px;border-radius:99px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .15s;background:var(--cream2);color:var(--brown-dk);border-color:var(--border)}
+.le-preset-btn:hover{border-color:var(--brown-md)}
+.le-preset-btn.active{border-color:currentColor;opacity:1}
+.le-empty{font-size:13px;color:var(--text-hint);padding:8px 0}
+
+/* 標籤編輯器列表 */
+.le-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
+.le-item:last-child{border-bottom:none}
+.le-drag{color:var(--text-hint);cursor:grab;font-size:16px;flex-shrink:0;user-select:none;padding:0 2px}
+.le-drag:active{cursor:grabbing}
+.le-item.dragging{opacity:.35;background:var(--cream2);border-radius:var(--radius-sm)}
+.le-chip{flex-shrink:0}
+.le-name-input{flex:1;height:32px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:0 8px;font-size:13px;font-family:inherit;color:var(--text-pri);background:#fff}
+.le-name-input:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 2px rgba(212,135,42,.15)}
+.le-del-btn{width:28px;height:28px;background:transparent;color:var(--text-hint);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.le-del-btn:hover{background:var(--red-bg);color:var(--red);border-color:#e8a0a0}
 .td-time{font-size:12px;color:var(--text-hint);white-space:nowrap}
 .raw-filter-labels{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .filter-label{cursor:pointer;opacity:.6;transition:opacity .15s}
@@ -264,15 +277,13 @@ tr:hover td{background:var(--cream)}
           <button class="btn-cancel hidden" id="raw-cancel-btn" onclick="cancelRaw()">取消</button>
         </div>
       </div>
-      <div class="form-section-title">標籤（可複選）</div>
-      <div class="label-colors" id="raw-label-presets"></div>
-      <div class="label-input-wrap">
-        <input id="f-raw-label-input" placeholder="自訂標籤名稱，按 Enter 新增">
-        <button class="btn-secondary" onclick="addCustomLabel()">新增</button>
-      </div>
-      <div class="selected-labels-bar">
-        <div class="tags-row" id="raw-selected-labels"></div>
-        <button class="btn-manage-labels hidden" id="btn-manage-labels" onclick="openLabelModal()">管理標籤</button>
+      <div class="label-bar">
+        <div class="label-bar-left">
+          <span class="form-section-title" style="margin:0">已選標籤：</span>
+          <div id="raw-selected-labels" class="selected-chips"></div>
+          <span id="raw-no-label" class="no-label-hint">尚未選擇標籤</span>
+        </div>
+        <button class="btn-edit-labels" onclick="openLabelEditor()">✎ 編輯標籤</button>
       </div>
     </div>
     <div class="list-header">
@@ -425,15 +436,38 @@ tr:hover td{background:var(--cream)}
   </div>
 </div>
 
-<!-- Label Modal -->
-<div class="confirm-overlay hidden" id="label-modal-overlay" onclick="closeLabelModal()">
-  <div class="confirm-box label-modal-box" onclick="event.stopPropagation()">
-    <div class="label-modal-title">管理已選標籤</div>
-    <p class="label-modal-desc">拖曳調整順序，點名稱改名，按 × 刪除</p>
-    <div id="label-modal-list"></div>
-    <div class="confirm-btns" style="margin-top:1.25rem">
-      <button class="btn-cancel" onclick="closeLabelModal()">取消</button>
-      <button class="btn-primary" onclick="saveLabelModal()">儲存</button>
+<!-- Label Editor Modal -->
+<div class="confirm-overlay hidden" id="label-editor-overlay">
+  <div class="label-editor-box" onclick="event.stopPropagation()">
+    <div class="label-editor-header">
+      <span class="label-modal-title">編輯標籤</span>
+    </div>
+
+    <!-- 預設標籤快選 -->
+    <div class="label-editor-section">
+      <div class="label-editor-section-title">快速加入預設標籤</div>
+      <div id="le-presets" class="le-presets"></div>
+    </div>
+
+    <!-- 自訂新增 -->
+    <div class="label-editor-section">
+      <div class="label-editor-section-title">新增自訂標籤</div>
+      <div class="ing-add-row">
+        <input id="le-new-input" placeholder="輸入標籤名稱" style="flex:1">
+        <button class="btn-secondary" onclick="leAddNew()">新增</button>
+      </div>
+    </div>
+
+    <!-- 已選標籤列表 -->
+    <div class="label-editor-section">
+      <div class="label-editor-section-title">已選標籤（可拖曳排序）</div>
+      <div id="le-list"></div>
+      <div id="le-empty" class="le-empty hidden">尚未加入任何標籤</div>
+    </div>
+
+    <div class="confirm-btns" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <button class="btn-cancel" onclick="closeLabelEditor()">取消</button>
+      <button class="btn-primary" onclick="saveLabelEditor()">儲存</button>
     </div>
   </div>
 </div>
@@ -472,137 +506,147 @@ window._rawSelectedLabels = []   // 表單暫存標籤
 window._rawFilterLabel = null    // 列表篩選標籤
 window._rawDragId = null         // 拖曳排序暫存
 
-// 預設標籤清單（顏色對應 lc-0~7）
+// 預設標籤
 const PRESET_LABELS = [
   {name:'粉類',color:0},{name:'糖＆鹽',color:2},{name:'油脂',color:3},
   {name:'乳製品',color:1},{name:'蛋',color:7},{name:'酵母',color:4},
   {name:'堅果',color:6}
 ]
 
-function initLabelPresets(){
-  const el=document.getElementById('raw-label-presets')
-  el.innerHTML=PRESET_LABELS.map((l,i)=>
-    `<span class="raw-label lc-${l.color}" data-name="${l.name}" data-color="${l.color}" onclick="togglePresetLabel(this,'${l.name}',${l.color})">${l.name}</span>`
-  ).join('')
-}
-initLabelPresets()
-
-window.togglePresetLabel=(el,name,color)=>{
-  const idx=window._rawSelectedLabels.findIndex(l=>l.name===name)
-  if(idx>=0){ window._rawSelectedLabels.splice(idx,1); el.classList.remove('selected') }
-  else{ window._rawSelectedLabels.push({name,color}); el.classList.add('selected') }
-  renderSelectedLabels()
-}
-
-window.addCustomLabel=()=>{
-  const inp=document.getElementById('f-raw-label-input')
-  const name=inp.value.trim()
-  if(!name)return
-  if(window._rawSelectedLabels.find(l=>l.name===name))return
-  const color=window._rawSelectedLabels.length%8
-  window._rawSelectedLabels.push({name,color})
-  inp.value=''
-  renderSelectedLabels()
-}
-
-document.getElementById('f-raw-label-input').addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();addCustomLabel()} })
-
+// ===== 已選標籤顯示（表單外層） =====
 function renderSelectedLabels(){
+  const chips=document.getElementById('raw-selected-labels')
+  const hint=document.getElementById('raw-no-label')
   const labels=window._rawSelectedLabels
-  const el=document.getElementById('raw-selected-labels')
-  const btn=document.getElementById('btn-manage-labels')
   if(!labels.length){
-    el.innerHTML=''
-    btn.classList.add('hidden')
-    return
+    chips.innerHTML=''
+    hint.classList.remove('hidden')
+  } else {
+    hint.classList.add('hidden')
+    chips.innerHTML=labels.map(l=>`<span class="raw-label lc-${l.color}">${l.name}</span>`).join('')
   }
-  btn.classList.remove('hidden')
-  el.innerHTML=labels.map(l=>
-    `<span class="raw-label lc-${l.color} selected">${l.name}</span>`
-  ).join('')
 }
 
-window.removeSelectedLabel=(i)=>{
-  const name=window._rawSelectedLabels[i].name
-  window._rawSelectedLabels.splice(i,1)
-  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>{
-    if(el.dataset.name===name) el.classList.remove('selected')
-  })
-  renderSelectedLabels()
+// ===== 標籤編輯器 =====
+let _leLabels=[]   // 編輯器內的工作副本
+let _leDragIdx=null
+
+window.openLabelEditor=()=>{
+  _leLabels=window._rawSelectedLabels.map(l=>({...l}))
+  renderLePresets()
+  renderLeList()
+  document.getElementById('label-editor-overlay').classList.remove('hidden')
+  document.getElementById('le-new-input').value=''
 }
 
-// ===== Label Modal =====
-let _modalLabels=[]   // modal 內的暫存副本
-let _modalDragIdx=null
-
-window.openLabelModal=()=>{
-  _modalLabels=window._rawSelectedLabels.map(l=>({...l}))
-  renderModalList()
-  document.getElementById('label-modal-overlay').classList.remove('hidden')
-}
-window.closeLabelModal=()=>{
-  document.getElementById('label-modal-overlay').classList.add('hidden')
-}
-window.saveLabelModal=()=>{
-  syncModalInputs()
-  window._rawSelectedLabels=_modalLabels.map(l=>({...l}))
-  document.querySelectorAll('#raw-label-presets .raw-label').forEach(el=>{
-    el.classList.toggle('selected', window._rawSelectedLabels.some(l=>l.name===el.dataset.name))
-  })
-  renderSelectedLabels()
-  closeLabelModal()
+window.closeLabelEditor=()=>{
+  document.getElementById('label-editor-overlay').classList.add('hidden')
 }
 
-function renderModalList(){
-  const el=document.getElementById('label-modal-list')
-  el.innerHTML=_modalLabels.map((l,i)=>`
-    <div class="modal-label-item" draggable="true" data-idx="${i}"
-      ondragstart="onModalLabelDragStart(event,${i})"
-      ondragover="onModalLabelDragOver(event)"
-      ondrop="onModalLabelDrop(event,${i})"
-      ondragend="onModalLabelDragEnd()">
-      <span class="label-drag">⠿</span>
-      <span class="raw-label lc-${l.color}">${l.name}</span>
-      <input class="label-edit-input" value="${l.name}" data-idx="${i}"
-        oninput="updateModalLabelName(${i},this.value)">
-      <button class="btn-icon btn-del label-action-btn" onclick="deleteModalLabel(${i})" title="刪除">×</button>
-    </div>`
-  ).join('')
-}
-
-window.updateModalLabelName=(i,val)=>{
-  _modalLabels[i].name=val
-}
-window.deleteModalLabel=(i)=>{
-  // 先把 input 的當前值同步回來，避免 DOM 和資料不一致
-  syncModalInputs()
-  _modalLabels.splice(i,1)
-  renderModalList()
-}
-
-function syncModalInputs(){
-  document.querySelectorAll('#label-modal-list .label-edit-input').forEach(inp=>{
+window.saveLabelEditor=()=>{
+  // 把輸入框的值全部讀回來
+  document.querySelectorAll('#le-list .le-name-input').forEach(inp=>{
     const i=parseInt(inp.dataset.idx)
-    if(_modalLabels[i]!==undefined) _modalLabels[i].name=inp.value
+    if(_leLabels[i]!==undefined) _leLabels[i].name=inp.value.trim()||_leLabels[i].name
   })
+  window._rawSelectedLabels=_leLabels.filter(l=>l.name)
+  renderSelectedLabels()
+  closeLabelEditor()
 }
 
-window.onModalLabelDragStart=(e,i)=>{
-  syncModalInputs()
-  _modalDragIdx=i
+function renderLePresets(){
+  const el=document.getElementById('le-presets')
+  el.innerHTML=PRESET_LABELS.map(l=>{
+    const active=_leLabels.some(x=>x.name===l.name)
+    return `<button class="le-preset-btn lc-${l.color} ${active?'active':''}"
+      onclick="leTogglePreset('${l.name}',${l.color},this)">${l.name}</button>`
+  }).join('')
+}
+
+window.leTogglePreset=(name,color,btn)=>{
+  const idx=_leLabels.findIndex(l=>l.name===name)
+  if(idx>=0){
+    _leLabels.splice(idx,1)
+    btn.classList.remove('active')
+  } else {
+    _leLabels.push({name,color})
+    btn.classList.add('active')
+  }
+  renderLeList()
+}
+
+window.leAddNew=()=>{
+  const inp=document.getElementById('le-new-input')
+  const name=inp.value.trim()
+  if(!name) return
+  if(_leLabels.find(l=>l.name===name)) return
+  const color=_leLabels.length%8
+  _leLabels.push({name,color})
+  inp.value=''
+  renderLePresets()
+  renderLeList()
+}
+document.getElementById('le-new-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){e.preventDefault();leAddNew()}
+})
+
+function renderLeList(){
+  const el=document.getElementById('le-list')
+  const empty=document.getElementById('le-empty')
+  if(!_leLabels.length){
+    el.innerHTML=''; empty.classList.remove('hidden'); return
+  }
+  empty.classList.add('hidden')
+  el.innerHTML=_leLabels.map((l,i)=>`
+    <div class="le-item" draggable="true"
+      ondragstart="leDragStart(event,${i})"
+      ondragover="leDragOver(event)"
+      ondrop="leDrop(event,${i})"
+      ondragend="leDragEnd()">
+      <span class="le-drag">⠿</span>
+      <span class="raw-label lc-${l.color} le-chip">${l.name}</span>
+      <input class="le-name-input" data-idx="${i}" value="${l.name}"
+        oninput="leUpdateName(${i},this.value)">
+      <button class="le-del-btn" onclick="leDelete(${i})">×</button>
+    </div>`).join('')
+}
+
+window.leUpdateName=(i,val)=>{
+  _leLabels[i].name=val
+  // 同步更新左側 chip
+  const chips=document.querySelectorAll('#le-list .le-chip')
+  if(chips[i]) chips[i].textContent=val||'…'
+}
+
+window.leDelete=(i)=>{
+  // 先把所有 input 值同步回來
+  document.querySelectorAll('#le-list .le-name-input').forEach(inp=>{
+    const idx=parseInt(inp.dataset.idx)
+    if(_leLabels[idx]!==undefined) _leLabels[idx].name=inp.value.trim()||_leLabels[idx].name
+  })
+  _leLabels.splice(i,1)
+  renderLePresets()
+  renderLeList()
+}
+
+window.leDragStart=(e,i)=>{
+  // 先把所有 input 值同步
+  document.querySelectorAll('#le-list .le-name-input').forEach(inp=>{
+    const idx=parseInt(inp.dataset.idx)
+    if(_leLabels[idx]!==undefined) _leLabels[idx].name=inp.value.trim()||_leLabels[idx].name
+  })
+  _leDragIdx=i
   setTimeout(()=>e.target.classList.add('dragging'),0)
 }
-window.onModalLabelDragOver=(e)=>{ e.preventDefault() }
-window.onModalLabelDragEnd=()=>{
-  document.querySelectorAll('.modal-label-item').forEach(el=>el.classList.remove('dragging'))
-}
-window.onModalLabelDrop=(e,toIdx)=>{
+window.leDragOver=(e)=>e.preventDefault()
+window.leDragEnd=()=>document.querySelectorAll('.le-item').forEach(el=>el.classList.remove('dragging'))
+window.leDrop=(e,toIdx)=>{
   e.preventDefault()
-  if(_modalDragIdx===null||_modalDragIdx===toIdx)return
-  const [moved]=_modalLabels.splice(_modalDragIdx,1)
-  _modalLabels.splice(toIdx,0,moved)
-  _modalDragIdx=null
-  renderModalList()
+  if(_leDragIdx===null||_leDragIdx===toIdx) return
+  const [moved]=_leLabels.splice(_leDragIdx,1)
+  _leLabels.splice(toIdx,0,moved)
+  _leDragIdx=null
+  renderLeList()
 }
 
 function fmtTime(ts){
