@@ -43,7 +43,16 @@ body{font-family:'Noto Sans TC',system-ui,sans-serif;background:var(--cream);col
 .page-desc{font-size:13px;color:var(--text-sec);margin-top:2px}
 
 /* 原料頁面 sticky 表單 */
-.raw-sticky{position:sticky;top:56px;z-index:90;background:var(--cream);padding-bottom:12px}
+.raw-sticky{
+  position:sticky;
+  top:56px;
+  z-index:90;
+  background:var(--cream);
+  padding-top:4px;
+  padding-bottom:8px;
+  margin-bottom:4px;
+  box-shadow:0 4px 8px -4px rgba(61,43,31,.08);
+}
 
 /* Form */
 .form-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.25rem;box-shadow:var(--shadow)}
@@ -258,41 +267,42 @@ tr:hover td{background:var(--cream)}
       </div>
       <div class="form-card">
         <div class="form-title" id="raw-form-title">＋ 新增原料</div>
-      <div class="form-grid g-raw">
-        <div class="field" id="f-raw-name-wrap">
-          <label>原料品名</label>
-          <input id="f-raw-name" placeholder="例：高筋麵粉">
-          <span class="err-msg hidden" id="e-raw-name"></span>
+        <div class="form-grid g-raw">
+          <div class="field" id="f-raw-name-wrap">
+            <label>原料品名</label>
+            <input id="f-raw-name" placeholder="例：高筋麵粉">
+            <span class="err-msg hidden" id="e-raw-name"></span>
+          </div>
+          <div class="field" id="f-raw-qty-wrap">
+            <label>進貨量</label>
+            <input id="f-raw-qty" type="number" placeholder="25" min="0">
+            <span class="err-msg hidden" id="e-raw-qty"></span>
+          </div>
+          <div class="field">
+            <label>單位</label>
+            <select id="f-raw-unit">
+              <option>kg</option><option>g</option><option>cc</option><option>斤</option><option>個</option>
+            </select>
+          </div>
+          <div class="field" id="f-raw-price-wrap">
+            <label>進貨價格 (NT$)</label>
+            <input id="f-raw-price" type="number" placeholder="450" min="0">
+            <span class="err-msg hidden" id="e-raw-price"></span>
+          </div>
+          <div class="field form-actions">
+            <button class="btn-primary" id="raw-submit-btn" onclick="submitRaw()">新增</button>
+            <button class="btn-cancel hidden" id="raw-cancel-btn" onclick="cancelRaw()">取消</button>
+          </div>
         </div>
-        <div class="field" id="f-raw-qty-wrap">
-          <label>進貨量</label>
-          <input id="f-raw-qty" type="number" placeholder="25" min="0">
-          <span class="err-msg hidden" id="e-raw-qty"></span>
+        <div class="label-bar">
+          <div class="label-bar-top">
+            <span class="form-section-title" style="margin:0">標籤</span>
+            <button class="btn-edit-labels" onclick="openLabelEditor()">✎ 編輯標籤</button>
+          </div>
+          <div id="raw-all-labels" class="raw-all-labels"></div>
+          <div id="raw-no-label" class="no-label-hint hidden">尚無標籤，請點「編輯標籤」新增</div>
         </div>
-        <div class="field">
-          <label>單位</label>
-          <select id="f-raw-unit">
-            <option>kg</option><option>g</option><option>cc</option><option>斤</option><option>個</option>
-          </select>
-        </div>
-        <div class="field" id="f-raw-price-wrap">
-          <label>進貨價格 (NT$)</label>
-          <input id="f-raw-price" type="number" placeholder="450" min="0">
-          <span class="err-msg hidden" id="e-raw-price"></span>
-        </div>
-        <div class="field form-actions">
-          <button class="btn-primary" id="raw-submit-btn" onclick="submitRaw()">新增</button>
-          <button class="btn-cancel hidden" id="raw-cancel-btn" onclick="cancelRaw()">取消</button>
-        </div>
-      </div>
-      <div class="label-bar">
-        <div class="label-bar-top">
-          <span class="form-section-title" style="margin:0">標籤</span>
-          <button class="btn-edit-labels" onclick="openLabelEditor()">✎ 編輯標籤</button>
-        </div>
-        <div id="raw-all-labels" class="raw-all-labels"></div>
-        <div id="raw-no-label" class="no-label-hint hidden">尚無標籤，請點「編輯標籤」新增</div>
-      </div>
+      </div><!-- end form-card -->
     </div><!-- end raw-sticky -->
     <div class="list-header">
       <div class="search-wrap">
@@ -478,7 +488,7 @@ tr:hover td{background:var(--cream)}
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'
 import {
   getFirestore, collection, onSnapshot, addDoc, updateDoc,
-  deleteDoc, doc, serverTimestamp, query, orderBy
+  deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'
 
 const firebaseConfig = {
@@ -515,15 +525,46 @@ const PRESET_LABELS = [
 ]
 
 // ===== 標籤系統 =====
-// _allLabels = 所有可用標籤（預設＋自訂），是全域標籤庫
-// _rawSelectedLabels = 目前這筆原料已選的標籤名稱列表（字串陣列）
-window._rawSelectedLabels = []  // 已選標籤名稱 ['粉類','油脂',...]
+// _allLabels 從 Firestore settings/labels 讀取，永久保存
+// _rawSelectedLabels = 目前這筆原料已選的標籤名稱（字串陣列）
+window._rawSelectedLabels = []
 
-let _allLabels = [
+const LABEL_COLORS = [0,1,2,3,4,5,6,7]
+const DEFAULT_LABELS = [
   {name:'粉類',color:0},{name:'糖＆鹽',color:2},{name:'油脂',color:3},
   {name:'乳製品',color:1},{name:'蛋',color:7},{name:'酵母',color:4},
   {name:'堅果',color:6}
 ]
+
+let _allLabels = []
+let _labelsLoaded = false
+
+// 從 Firestore 載入標籤庫
+async function loadLabels(){
+  try {
+    const ref = doc(db, 'settings', 'labels')
+    const snap = await getDoc(ref)
+    if(snap.exists() && snap.data().list?.length){
+      _allLabels = snap.data().list
+    } else {
+      _allLabels = [...DEFAULT_LABELS]
+      await setDoc(ref, {list: _allLabels})
+    }
+  } catch(e) {
+    _allLabels = [...DEFAULT_LABELS]
+  }
+  _labelsLoaded = true
+  renderSelectedLabels()
+}
+
+// 儲存標籤庫到 Firestore
+async function saveLabelsToFirestore(){
+  try {
+    await setDoc(doc(db,'settings','labels'), {list: _allLabels})
+  } catch(e){ console.error('儲存標籤失敗',e) }
+}
+
+loadLabels()
 
 // 外層標籤列：顯示所有標籤，已選的高亮，點一下切換選取
 function renderSelectedLabels(){
@@ -552,7 +593,7 @@ window.toggleLabel=(name)=>{
 }
 
 // ===== 標籤編輯器 Modal =====
-let _leLabels=[]   // modal 內工作副本
+let _leLabels=[]
 let _leDragIdx=null
 
 window.openLabelEditor=()=>{
@@ -566,14 +607,13 @@ window.closeLabelEditor=()=>{
   document.getElementById('label-editor-overlay').classList.add('hidden')
 }
 
-window.saveLabelEditor=()=>{
+window.saveLabelEditor=async()=>{
   // 同步所有 input 當前值
   document.querySelectorAll('#le-preset-list .le-name-input').forEach(inp=>{
     const i=parseInt(inp.dataset.idx)
     if(_leLabels[i]!==undefined){
       const newName=inp.value.trim()
       if(newName){
-        // 如果改名，同步更新已選列表
         const oldName=_leLabels[i].name
         if(oldName!==newName){
           const si=window._rawSelectedLabels.indexOf(oldName)
@@ -583,10 +623,10 @@ window.saveLabelEditor=()=>{
       }
     }
   })
-  // 移除已刪除標籤的已選狀態
   const validNames=_leLabels.map(l=>l.name)
   window._rawSelectedLabels=window._rawSelectedLabels.filter(n=>validNames.includes(n))
   _allLabels=[..._leLabels]
+  await saveLabelsToFirestore()
   renderSelectedLabels()
   closeLabelEditor()
 }
@@ -639,7 +679,7 @@ window.leAddNew=()=>{
   if(!name) return
   if(_leLabels.find(l=>l.name===name)) return
   const usedColors=_leLabels.map(l=>l.color)
-  const color=[0,1,2,3,4,5,6,7].find(c=>!usedColors.includes(c))??(_leLabels.length%8)
+  const color=LABEL_COLORS.find(c=>!usedColors.includes(c))??(_leLabels.length%8)
   syncLeInputs()
   _leLabels.push({name,color})
   inp.value=''
