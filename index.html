@@ -996,8 +996,8 @@ window.renderRaw=()=>{
     el.innerHTML=`<div class="empty-state"><div class="empty-icon">🌾</div><p>${q||window._rawFilterLabel?'找不到符合的原料':'尚無原料，請新增'}</p></div>`
     return
   }
-  // 拖曳排序只在無篩選時啟用
-  const canSort=!q&&!window._rawFilterLabel
+  // 有文字搜尋時禁用排序（結果不完整），標籤篩選時仍可排序
+  const canSort=!q
   el.innerHTML=`<div class="table-wrap"><table>
     <thead><tr>${canSort?'<th></th>':''}<th>品名</th><th>標籤</th><th>進貨量</th><th>進貨價格</th><th>每g單位成本</th><th>建立時間</th><th></th></tr></thead>
     <tbody id="raw-tbody">${list.map(r=>{
