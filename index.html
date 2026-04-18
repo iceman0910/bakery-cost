@@ -153,6 +153,7 @@ tr:hover td{background:var(--cream)}
 .lc-6{background:#e0f5f0;color:#1a7a60}.lc-7{background:#fff3e0;color:#a05a10}
 .td-drag{color:var(--text-hint);cursor:grab;font-size:16px;padding:10px 6px!important;user-select:none}
 .td-drag:active{cursor:grabbing}
+.drag-handle{display:inline-block;padding:6px 4px;touch-action:none;cursor:grab;font-size:18px}
 .raw-row.dragging{opacity:.4}
 .raw-row.drag-over td{background:var(--amber-bg)}
 
@@ -801,13 +802,18 @@ window.renderRaw=()=>{
         ? `NT$ ${cpg.toFixed(2)} / 個`
         : `NT$ ${cpg.toFixed(4)} / g`
       const labelsHtml=(r.labels||[]).map(l=>`<span class="raw-label lc-${l.color}">${l.name}</span>`).join(' ')
-      return `<tr draggable="${canSort}" data-id="${r.id}"
+      return `<tr data-id="${r.id}" class="raw-row"
+        ${canSort?`draggable="true"
         ondragstart="onRawDragStart(event,'${r.id}')"
         ondragover="onRawDragOver(event)"
         ondrop="onRawDrop(event,'${r.id}')"
-        ondragend="onRawDragEnd()"
-        class="raw-row">
-        ${canSort?`<td class="td-drag" title="拖曳排序">⠿</td>`:''}
+        ondragend="onRawDragEnd()"`:''}>
+        ${canSort?`<td class="td-drag">
+          <span class="drag-handle"
+            ontouchstart="onRawTouchStart(event,'${r.id}')"
+            ontouchmove="onRawTouchMove(event)"
+            ontouchend="onRawTouchEnd(event)">⠿</span>
+        </td>`:''}
         <td class="td-name">${r.name}</td>
         <td class="td-labels">${labelsHtml||'—'}</td>
         <td>${r.qty} ${badge(r.unit)}</td>
@@ -823,7 +829,7 @@ window.renderRaw=()=>{
   </table></div>`
 }
 
-// ===== 拖曳排序 =====
+// ===== 拖曳排序（桌機 mouse drag） =====
 window.onRawDragStart=(e,id)=>{
   window._rawDragId=id
   e.dataTransfer.effectAllowed='move'
@@ -836,17 +842,75 @@ window.onRawDragEnd=()=>{
 window.onRawDrop=async(e,targetId)=>{
   e.preventDefault()
   if(!window._rawDragId||window._rawDragId===targetId)return
-  // 重新排列本地順序
-  const fromIdx=window._raw.findIndex(r=>r.id===window._rawDragId)
-  const toIdx=window._raw.findIndex(r=>r.id===targetId)
+  await saveRawOrder(window._rawDragId, targetId)
+  window._rawDragId=null
+}
+
+// ===== 觸控排序（手機 touch） =====
+let _touchDragId=null
+let _touchClone=null
+let _touchOffsetY=0
+
+window.onRawTouchStart=(e,id)=>{
+  e.preventDefault()
+  _touchDragId=id
+  const touch=e.touches[0]
+  const row=e.target.closest('tr')
+  const rect=row.getBoundingClientRect()
+  _touchOffsetY=touch.clientY-rect.top
+
+  // 建立視覺跟隨的 clone
+  _touchClone=row.cloneNode(true)
+  _touchClone.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:.85;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);border-radius:6px;z-index:9999;pointer-events:none;`
+  document.body.appendChild(_touchClone)
+  row.style.opacity='.3'
+}
+
+window.onRawTouchMove=(e)=>{
+  if(!_touchDragId||!_touchClone)return
+  e.preventDefault()
+  const touch=e.touches[0]
+  _touchClone.style.top=(touch.clientY-_touchOffsetY)+'px'
+
+  // 找出目前 touch 位置下方的 row
+  _touchClone.style.display='none'
+  const el=document.elementFromPoint(touch.clientX, touch.clientY)
+  _touchClone.style.display=''
+  const targetRow=el?.closest('tr[data-id]')
+  document.querySelectorAll('.raw-row').forEach(r=>r.classList.remove('drag-over'))
+  if(targetRow&&targetRow.dataset.id!==_touchDragId) targetRow.classList.add('drag-over')
+}
+
+window.onRawTouchEnd=async(e)=>{
+  if(!_touchDragId)return
+  const touch=e.changedTouches[0]
+
+  // 清除 clone
+  if(_touchClone){ _touchClone.remove(); _touchClone=null }
+  document.querySelectorAll('.raw-row').forEach(r=>{
+    r.style.opacity=''; r.classList.remove('drag-over')
+  })
+
+  // 找目標 row
+  const el=document.elementFromPoint(touch.clientX, touch.clientY)
+  const targetRow=el?.closest('tr[data-id]')
+  const targetId=targetRow?.dataset.id
+  if(targetId&&targetId!==_touchDragId){
+    await saveRawOrder(_touchDragId, targetId)
+  }
+  _touchDragId=null
+}
+
+// 共用：重新排序並寫入 Firebase
+async function saveRawOrder(fromId, toId){
+  const fromIdx=window._raw.findIndex(r=>r.id===fromId)
+  const toIdx=window._raw.findIndex(r=>r.id===toId)
   if(fromIdx<0||toIdx<0)return
   const reordered=[...window._raw]
   const [moved]=reordered.splice(fromIdx,1)
   reordered.splice(toIdx,0,moved)
-  // 批次寫入 sortOrder
   const updates=reordered.map((r,i)=>updateDoc(doc(db,'rawIngredients',r.id),{sortOrder:i}))
   await Promise.all(updates)
-  window._rawDragId=null
 }
 
 window.submitRaw=async()=>{
