@@ -166,6 +166,9 @@ tr:hover td{background:var(--cream)}
 .td-ings-detail{min-width:160px}
 .ing-detail-row{display:flex;align-items:center;gap:6px;margin:2px 0}
 .ing-cost{font-size:12px;color:var(--amber);font-family:'DM Mono',monospace;white-space:nowrap}
+.btn-expand-ing{background:none;border:none;cursor:pointer;font-size:12px;color:var(--text-sec);padding:2px 0;white-space:nowrap;text-align:left}
+.btn-expand-ing:hover{color:var(--brown-md)}
+.ing-detail-panel{margin-top:6px}
 .ing-chip{display:inline-block;background:var(--cream2);border-radius:4px;padding:1px 6px;font-size:12px;color:var(--text-sec);margin:1px 2px}
 .ing-chip-prep{background:var(--amber-bg);color:#7a4f18}
 .margin-good{color:var(--green);font-weight:500}
@@ -1626,10 +1629,11 @@ window.renderPrep=()=>{
   }
   const canSort=!q&&!window._prepFilterLabel
   el.innerHTML=`<div class="table-wrap"><table>
-    <thead><tr>${canSort?'<th></th>':''}<th>備料名稱</th><th>標籤</th><th>成分明細</th><th>總重量</th><th>食材成本</th><th>每g成本</th><th></th></tr></thead>
+    <thead><tr>${canSort?'<th></th>':''}<th>備料名稱</th><th>標籤</th><th>成分</th><th>總重量</th><th>食材成本</th><th>每g成本</th><th></th></tr></thead>
     <tbody>${list.map(p=>{
       const cost=calcPrepCost(p.ingredients)
       const cpg=calcPrepCostPerG(p)
+      const ingCount=(p.ingredients||[]).length
       const ings=(p.ingredients||[]).map(i=>{
         const raw=window._raw.find(r=>r.id===i.rawId)
         const ingCost=raw?unitCostPerG(raw)*i.amount:0
@@ -1653,7 +1657,12 @@ window.renderPrep=()=>{
           ontouchend="onSortTouchEnd(event,'prep')">⠿</span></td>`:''}
         <td class="td-name">${p.name}</td>
         <td class="td-labels">${labelsHtml||'—'}</td>
-        <td class="td-ings-detail">${ings||'—'}</td>
+        <td>
+          <button class="btn-expand-ing" onclick="togglePrepIng('${p.id}',this)">
+            ▶ ${ingCount} 種成分
+          </button>
+          <div class="ing-detail-panel" id="ing-${p.id}" style="display:none">${ings}</div>
+        </td>
         <td>${p.totalWeight}g</td>
         <td class="td-cost">NT$ ${cost.toFixed(1)}</td>
         <td class="td-cost">NT$ ${cpg.toFixed(4)}</td>
@@ -1665,6 +1674,13 @@ window.renderPrep=()=>{
     }).join('')}</tbody>
   </table></div>`
   prepLS.renderFilter()
+}
+
+window.togglePrepIng=(id,btn)=>{
+  const panel=document.getElementById('ing-'+id)
+  const open=panel.style.display==='none'
+  panel.style.display=open?'block':'none'
+  btn.textContent=open?`▼ 收起成分`:`▶ ${panel.children.length} 種成分`
 }
 
 window.submitPrep=async()=>{
