@@ -474,7 +474,7 @@ tr:hover td{background:var(--cream)}
         </div>
         <div class="field">
           <label>目標毛利率 (%)</label>
-          <input id="f-fin-margin" type="number" placeholder="60" min="0" max="100" value="60" oninput="updateFinPreview()">
+          <input id="f-fin-margin" type="number" placeholder="70" min="0" max="100" value="70" oninput="updateFinPreview()">
         </div>
       </div>
       <div class="ing-section-grid">
@@ -1962,7 +1962,7 @@ function clearFinForm(){
   document.getElementById('f-fin-name').value=''
   document.getElementById('f-fin-price').value=''
   document.getElementById('f-fin-qty').value=1
-  document.getElementById('f-fin-margin').value=60
+  document.getElementById('f-fin-margin').value=70
   window._finIngs=[]
   renderFinTags()
   document.getElementById('fin-preview-row').classList.add('hidden')
