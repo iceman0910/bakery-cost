@@ -256,10 +256,11 @@ tr:hover td{background:var(--cream)}
   .g-prep,.g-fin{grid-template-columns:1fr 1fr}
   .g-fin>*:first-child{grid-column:span 2}
   .ing-section-grid{grid-template-columns:1fr}
-  table{font-size:13px}
-  th,td{padding:8px 8px}
-  .td-ings{max-width:120px}
   .cost-preview-row{flex-direction:column}
+
+  /* 備料/成品 手機改卡片佈局 */
+  .prep-table-wrap table, .fin-table-wrap table { display:none }
+  .prep-cards, .fin-cards { display:flex; flex-direction:column; gap:10px }
 }
 @media(max-width:420px){
   .main{padding:1rem .75rem 2rem}
@@ -269,6 +270,26 @@ tr:hover td{background:var(--cream)}
   .g-raw>.form-actions{grid-column:auto}
   .ing-add-row{flex-wrap:wrap}
 }
+
+/* 備料/成品 卡片樣式（手機用） */
+.item-card{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:12px 14px;
+  box-shadow:var(--shadow);
+}
+.item-card-header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;
+}
+.item-card-name{font-size:15px;font-weight:500;color:var(--brown-dk);flex:1}
+.item-card-actions{display:flex;gap:6px;flex-shrink:0}
+.item-card-labels{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.item-card-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:3px 0;border-bottom:1px solid var(--border);color:var(--text-sec)}
+.item-card-row:last-child{border-bottom:none}
+.item-card-row span:last-child{font-weight:500;color:var(--text-pri);text-align:right}
+.item-card-val-amber{color:var(--amber)!important;font-family:'DM Mono',monospace}
+.item-card-drag{color:var(--text-hint);font-size:20px;padding:2px 4px;touch-action:none;cursor:grab}
 </style>
 </head>
 <body>
@@ -1643,29 +1664,39 @@ window.renderPrep=()=>{
     return
   }
   const canSort=!q&&!window._prepFilterLabel
-  el.innerHTML=`<div class="table-wrap"><table>
+  const allPrepLabels=prepLS.getAllLabels()
+
+  const rows=list.map(p=>{
+    const cost=calcPrepCost(p.ingredients)
+    const cpg=calcPrepCostPerG(p)
+    const ingCount=(p.ingredients||[]).length
+    const ings=(p.ingredients||[]).map(i=>{
+      const raw=window._raw.find(r=>r.id===i.rawId)
+      const ingCost=raw?unitCostPerG(raw)*i.amount:0
+      return `<div class="ing-detail-row"><span class="ing-chip">${i.rawName} ${i.amount}g</span><span class="ing-cost">NT$ ${ingCost.toFixed(1)}</span></div>`
+    }).join('')
+    const labelsHtml=(p.labels||[]).map(lname=>{
+      const name=typeof lname==='string'?lname:lname.name
+      const meta=allPrepLabels.find(x=>x.name===name)
+      return `<span class="raw-label lc-${meta?meta.color:0}">${name}</span>`
+    }).join(' ')
+    const dragAttrs=canSort?`draggable="true"
+      ondragstart="onSortDragStart(event,'${p.id}','prep')"
+      ondragover="onSortDragOver(event)"
+      ondrop="onSortDrop(event,'${p.id}','prep')"
+      ondragend="onSortDragEnd()"`:''
+    const touchHandle=canSort?`<span class="item-card-drag"
+      ontouchstart="onSortTouchStart(event,'${p.id}','prep')"
+      ontouchmove="onSortTouchMove(event)"
+      ontouchend="onSortTouchEnd(event,'prep')">⠿</span>`:''
+    return {p,cost,cpg,ingCount,ings,labelsHtml,dragAttrs,touchHandle}
+  })
+
+  // 桌機：表格
+  const tableHtml=`<div class="table-wrap prep-table-wrap"><table>
     <thead><tr>${canSort?'<th></th>':''}<th>備料名稱</th><th>標籤</th><th>成分</th><th>總重量</th><th>食材成本</th><th>每g成本</th><th></th></tr></thead>
-    <tbody>${list.map(p=>{
-      const cost=calcPrepCost(p.ingredients)
-      const cpg=calcPrepCostPerG(p)
-      const ingCount=(p.ingredients||[]).length
-      const ings=(p.ingredients||[]).map(i=>{
-        const raw=window._raw.find(r=>r.id===i.rawId)
-        const ingCost=raw?unitCostPerG(raw)*i.amount:0
-        return `<div class="ing-detail-row"><span class="ing-chip">${i.rawName} ${i.amount}g</span><span class="ing-cost">NT$ ${ingCost.toFixed(1)}</span></div>`
-      }).join('')
-      const allPrepLabels=prepLS.getAllLabels()
-      const labelsHtml=(p.labels||[]).map(lname=>{
-        const name=typeof lname==='string'?lname:lname.name
-        const meta=allPrepLabels.find(x=>x.name===name)
-        return `<span class="raw-label lc-${meta?meta.color:0}">${name}</span>`
-      }).join(' ')
-      return `<tr data-id="${p.id}" class="sort-row"
-        ${canSort?`draggable="true"
-          ondragstart="onSortDragStart(event,'${p.id}','prep')"
-          ondragover="onSortDragOver(event)"
-          ondrop="onSortDrop(event,'${p.id}','prep')"
-          ondragend="onSortDragEnd()"`:''}>
+    <tbody>${rows.map(({p,cost,cpg,ingCount,ings,labelsHtml,dragAttrs})=>`
+      <tr data-id="${p.id}" class="sort-row" ${dragAttrs}>
         ${canSort?`<td class="td-drag"><span class="drag-handle"
           ontouchstart="onSortTouchStart(event,'${p.id}','prep')"
           ontouchmove="onSortTouchMove(event)"
@@ -1673,9 +1704,7 @@ window.renderPrep=()=>{
         <td class="td-name">${p.name}</td>
         <td class="td-labels">${labelsHtml||'—'}</td>
         <td>
-          <button class="btn-expand-ing" onclick="togglePrepIng('${p.id}',this)">
-            ▶ ${ingCount} 種成分
-          </button>
+          <button class="btn-expand-ing" onclick="togglePrepIng('${p.id}',this)">▶ ${ingCount} 種成分</button>
           <div class="ing-detail-panel" id="ing-${p.id}" style="display:none">${ings}</div>
         </td>
         <td>${p.totalWeight}g</td>
@@ -1685,17 +1714,40 @@ window.renderPrep=()=>{
           <button class="btn-icon" onclick="editPrep('${p.id}')" title="編輯">✎</button>
           <button class="btn-icon btn-del" onclick="openConfirm('${p.name}',()=>delPrep('${p.id}'))" title="刪除">⌫</button>
         </td>
-      </tr>`
-    }).join('')}</tbody>
+      </tr>`).join('')}</tbody>
   </table></div>`
+
+  // 手機：卡片
+  const cardsHtml=`<div class="prep-cards">${rows.map(({p,cost,cpg,ingCount,ings,labelsHtml,touchHandle})=>`
+    <div class="item-card sort-row" data-id="${p.id}">
+      <div class="item-card-header">
+        ${touchHandle}
+        <span class="item-card-name">${p.name}</span>
+        <div class="item-card-actions">
+          <button class="btn-icon" onclick="editPrep('${p.id}')">✎</button>
+          <button class="btn-icon btn-del" onclick="openConfirm('${p.name}',()=>delPrep('${p.id}'))">⌫</button>
+        </div>
+      </div>
+      ${labelsHtml?`<div class="item-card-labels">${labelsHtml}</div>`:''}
+      <div class="item-card-row"><span>總重量</span><span>${p.totalWeight}g</span></div>
+      <div class="item-card-row"><span>食材成本</span><span class="item-card-val-amber">NT$ ${cost.toFixed(1)}</span></div>
+      <div class="item-card-row"><span>每g成本</span><span class="item-card-val-amber">NT$ ${cpg.toFixed(4)}</span></div>
+      <div class="item-card-row" style="border-bottom:none">
+        <button class="btn-expand-ing" onclick="togglePrepIng('card-${p.id}',this)">▶ ${ingCount} 種成分</button>
+      </div>
+      <div id="ing-card-${p.id}" style="display:none;margin-top:4px">${ings}</div>
+    </div>`).join('')}</div>`
+
+  el.innerHTML=tableHtml+cardsHtml
   prepLS.renderFilter()
 }
 
 window.togglePrepIng=(id,btn)=>{
   const panel=document.getElementById('ing-'+id)
+  if(!panel)return
   const open=panel.style.display==='none'
   panel.style.display=open?'block':'none'
-  btn.textContent=open?`▼ 收起成分`:`▶ ${panel.children.length} 種成分`
+  btn.textContent=open?'▼ 收起成分':`▶ ${panel.children.length} 種成分`
 }
 
 window.submitPrep=async()=>{
@@ -1800,25 +1852,33 @@ window.renderFin=()=>{
   }
   const canSort=!q&&!window._finFilterLabel
   const allFinLabels=finLS.getAllLabels()
-  el.innerHTML=`<div class="table-wrap"><table>
+  const rows=list.map(f=>{
+    const cost=calcFinCost(f.ingredients)*(f.quantity||1)
+    const gm=f.salePrice>0?((f.salePrice-cost)/f.salePrice*100):null
+    const sug=cost>0&&(f.targetMargin||60)<100?cost/(1-(f.targetMargin||60)/100):null
+    const isGood=gm!==null&&gm>=(f.targetMargin||60)
+    const ings=(f.ingredients||[]).map(i=>`<span class="ing-chip ${i.type==='prep'?'ing-chip-prep':''}">${i.name} ${i.amount}g</span>`).join('')
+    const labelsHtml=(f.labels||[]).map(lname=>{
+      const name=typeof lname==='string'?lname:lname.name
+      const meta=allFinLabels.find(x=>x.name===name)
+      return `<span class="raw-label lc-${meta?meta.color:0}">${name}</span>`
+    }).join(' ')
+    const dragAttrs=canSort?`draggable="true"
+      ondragstart="onSortDragStart(event,'${f.id}','fin')"
+      ondragover="onSortDragOver(event)"
+      ondrop="onSortDrop(event,'${f.id}','fin')"
+      ondragend="onSortDragEnd()"`:''
+    const touchHandle=canSort?`<span class="item-card-drag"
+      ontouchstart="onSortTouchStart(event,'${f.id}','fin')"
+      ontouchmove="onSortTouchMove(event)"
+      ontouchend="onSortTouchEnd(event,'fin')">⠿</span>`:''
+    return {f,cost,gm,sug,isGood,ings,labelsHtml,dragAttrs,touchHandle}
+  })
+
+  const tableHtml=`<div class="table-wrap fin-table-wrap"><table>
     <thead><tr>${canSort?'<th></th>':''}<th>成品名稱</th><th>標籤</th><th>成分</th><th>食材成本</th><th>售價</th><th>毛利率</th><th>建議售價</th><th></th></tr></thead>
-    <tbody>${list.map(f=>{
-      const cost=calcFinCost(f.ingredients)*(f.quantity||1)
-      const gm=f.salePrice>0?((f.salePrice-cost)/f.salePrice*100):null
-      const sug=cost>0&&(f.targetMargin||60)<100?cost/(1-(f.targetMargin||60)/100):null
-      const isGood=gm!==null&&gm>=(f.targetMargin||60)
-      const ings=(f.ingredients||[]).map(i=>`<span class="ing-chip ${i.type==='prep'?'ing-chip-prep':''}">${i.name} ${i.amount}g</span>`).join('')
-      const labelsHtml=(f.labels||[]).map(lname=>{
-        const name=typeof lname==='string'?lname:lname.name
-        const meta=allFinLabels.find(x=>x.name===name)
-        return `<span class="raw-label lc-${meta?meta.color:0}">${name}</span>`
-      }).join(' ')
-      return `<tr data-id="${f.id}" class="sort-row"
-        ${canSort?`draggable="true"
-          ondragstart="onSortDragStart(event,'${f.id}','fin')"
-          ondragover="onSortDragOver(event)"
-          ondrop="onSortDrop(event,'${f.id}','fin')"
-          ondragend="onSortDragEnd()"`:''}>
+    <tbody>${rows.map(({f,cost,gm,sug,isGood,ings,labelsHtml,dragAttrs})=>`
+      <tr data-id="${f.id}" class="sort-row" ${dragAttrs}>
         ${canSort?`<td class="td-drag"><span class="drag-handle"
           ontouchstart="onSortTouchStart(event,'${f.id}','fin')"
           ontouchmove="onSortTouchMove(event)"
@@ -1831,12 +1891,31 @@ window.renderFin=()=>{
         <td>${gm!==null?`<span class="${isGood?'margin-good':'margin-bad'}">${gm.toFixed(1)}%</span>`:'—'}</td>
         <td class="td-cost">${sug?`NT$ ${sug.toFixed(0)}`:'—'}</td>
         <td class="td-actions">
-          <button class="btn-icon" onclick="editFin('${f.id}')" title="編輯">✎</button>
-          <button class="btn-icon btn-del" onclick="openConfirm('${f.name}',()=>delFin('${f.id}'))" title="刪除">⌫</button>
+          <button class="btn-icon" onclick="editFin('${f.id}')">✎</button>
+          <button class="btn-icon btn-del" onclick="openConfirm('${f.name}',()=>delFin('${f.id}'))">⌫</button>
         </td>
-      </tr>`
-    }).join('')}</tbody>
+      </tr>`).join('')}</tbody>
   </table></div>`
+
+  const cardsHtml=`<div class="fin-cards">${rows.map(({f,cost,gm,sug,isGood,ings,labelsHtml,touchHandle})=>`
+    <div class="item-card sort-row" data-id="${f.id}">
+      <div class="item-card-header">
+        ${touchHandle}
+        <span class="item-card-name">${f.name}</span>
+        <div class="item-card-actions">
+          <button class="btn-icon" onclick="editFin('${f.id}')">✎</button>
+          <button class="btn-icon btn-del" onclick="openConfirm('${f.name}',()=>delFin('${f.id}'))">⌫</button>
+        </div>
+      </div>
+      ${labelsHtml?`<div class="item-card-labels">${labelsHtml}</div>`:''}
+      <div class="item-card-row"><span>食材成本</span><span class="item-card-val-amber">NT$ ${cost.toFixed(1)}</span></div>
+      <div class="item-card-row"><span>售價</span><span>${f.salePrice?`NT$ ${f.salePrice}`:'—'}</span></div>
+      <div class="item-card-row"><span>毛利率</span><span>${gm!==null?`<span class="${isGood?'margin-good':'margin-bad'}">${gm.toFixed(1)}%</span>`:'—'}</span></div>
+      <div class="item-card-row"><span>建議售價</span><span class="item-card-val-amber">${sug?`NT$ ${sug.toFixed(0)}`:'—'}</span></div>
+      ${ings?`<div class="item-card-row" style="border-bottom:none;flex-wrap:wrap;gap:4px"><span style="width:100%;color:var(--text-hint);font-size:12px;margin-bottom:2px">成分</span>${ings}</div>`:''}
+    </div>`).join('')}</div>`
+
+  el.innerHTML=tableHtml+cardsHtml
   finLS.renderFilter()
 }
 
