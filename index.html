@@ -468,6 +468,7 @@ tr:hover td{background:var(--cream)}
         </div>
         <div>
           <div class="form-section-title">加入備料</div>
+          <div class="label-filter-row" id="fin-prep-label-filter"></div>
           <div class="ing-add-row">
             <select id="fin-prep-sel"></select>
             <input id="fin-prep-amt" type="number" placeholder="用量(g)" min="0">
@@ -1060,7 +1061,7 @@ function createLabelSystem({
     getAllLabels: ()=>_allLabels,
     renderFilter: renderFilterLabels,
     renderSelected: renderSelectedLabels,
-    load: loadLabels
+    load: ()=>loadLabels()
   }
 }
 
@@ -1084,7 +1085,7 @@ const finLS=createLabelSystem({
   leListId:'fin-le-list', leNewInputId:'fin-le-new-input',
   renderList:()=>renderFin(), submitSave:null, collectionName:'finishedProducts'
 })
-prepLS.load(); finLS.load()
+prepLS.load().then(()=>updateSelects()); finLS.load()
 
 window.openPrepLabelEditor=()=>prepLS.openEditor()
 window.closePrepLabelEditor=()=>prepLS.closeEditor()
@@ -1272,11 +1273,19 @@ window.doConfirm=()=>{ window._confirmCb&&window._confirmCb(); closeConfirm() }
 // ===== Selects with label filter =====
 let _prepLabelFilter=null
 let _finLabelFilter=null
+let _finPrepLabelFilter=null
 
 function filteredRawOptions(labelFilter){
   return window._raw.filter(r=>{
     if(!labelFilter) return true
     return (r.labels||[]).some(l=>(typeof l==='string'?l:l.name)===labelFilter)
+  })
+}
+
+function filteredPrepOptions(labelFilter){
+  return window._prep.filter(p=>{
+    if(!labelFilter) return true
+    return (p.labels||[]).some(l=>(typeof l==='string'?l:l.name)===labelFilter)
   })
 }
 
@@ -1295,24 +1304,30 @@ window.updateSelects=()=>{
     ? finFiltered.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')
     : `<option value="">（此分類無原料）</option>`
 
-  // 成品：加入備料 select（不需要標籤篩選）
+  // 成品：加入備料 select（備料標籤篩選）
   const finPrepSel=document.getElementById('fin-prep-sel')
-  finPrepSel.innerHTML=window._prep.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')
+  const finPrepFiltered=filteredPrepOptions(_finPrepLabelFilter)
+  finPrepSel.innerHTML=finPrepFiltered.length
+    ? finPrepFiltered.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')
+    : `<option value="">（此分類無備料）</option>`
 
-  // 渲染標籤篩選按鈕
-  renderIngLabelFilter('prep-label-filter', _prepLabelFilter, 'setPrepLabelFilter')
-  renderIngLabelFilter('fin-label-filter', _finLabelFilter, 'setFinLabelFilter')
+  // 渲染原料標籤篩選按鈕
+  renderIngLabelFilter('prep-label-filter', _prepLabelFilter, 'setPrepLabelFilter', _allLabels)
+  renderIngLabelFilter('fin-label-filter', _finLabelFilter, 'setFinLabelFilter', _allLabels)
+  // 渲染備料標籤篩選按鈕（用備料的標籤庫）
+  renderIngLabelFilter('fin-prep-label-filter', _finPrepLabelFilter, 'setFinPrepLabelFilter', prepLS.getAllLabels())
 }
 
 window.setPrepLabelFilter=(n)=>{ _prepLabelFilter=n; updateSelects() }
 window.setFinLabelFilter=(n)=>{ _finLabelFilter=n; updateSelects() }
+window.setFinPrepLabelFilter=(n)=>{ _finPrepLabelFilter=n; updateSelects() }
 
-function renderIngLabelFilter(containerId, currentFilter, callbackName){
+function renderIngLabelFilter(containerId, currentFilter, callbackName, labelList){
   const el=document.getElementById(containerId)
-  if(!_allLabels.length){ el.innerHTML=''; return }
+  if(!labelList||!labelList.length){ el.innerHTML=''; return }
   el.innerHTML=
     `<button class="lf-btn ${currentFilter===null?'lf-on':''}" onclick="${callbackName}(null)">全部</button>`
-    +_allLabels.map(l=>
+    +labelList.map(l=>
       `<button class="lf-btn lc-${l.color} ${currentFilter===l.name?'lf-on':''}"
         onclick="${callbackName}('${l.name.replace(/'/g,"\\'")}')">
         ${l.name}
