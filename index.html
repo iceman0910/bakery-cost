@@ -1410,13 +1410,21 @@ window.renderRaw=()=>{
         <td class="td-cost">${costStr}</td>
         <td class="td-time">${fmtTime(r.createdAt)}</td>
         <td class="td-actions">
-          <button class="btn-icon" onclick="editRaw('${r.id}')" title="編輯">✎</button>
-          <button class="btn-icon btn-del" onclick="openConfirm('${r.name}',()=>delRaw('${r.id}'))" title="刪除">⌫</button>
+          <button class="btn-icon btn-raw-edit" data-id="${r.id}" title="編輯">✎</button>
+          <button class="btn-icon btn-del btn-raw-del" data-id="${r.id}" data-name="${r.name.replace(/"/g,'&quot;')}" title="刪除">⌫</button>
         </td>
       </tr>`
     }).join('')}</tbody>
   </table></div>`
 }
+
+// ===== 原料表格按鈕事件委派 =====
+document.getElementById('raw-list').addEventListener('click', e=>{
+  const editBtn=e.target.closest('.btn-raw-edit')
+  const delBtn=e.target.closest('.btn-raw-del')
+  if(editBtn) editRaw(editBtn.dataset.id)
+  if(delBtn) openConfirm(delBtn.dataset.name, ()=>delRaw(delBtn.dataset.id))
+})
 
 // ===== 拖曳排序（桌機 mouse drag） =====
 window.onRawDragStart=(e,id)=>{
