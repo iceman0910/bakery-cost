@@ -261,6 +261,10 @@ tr:hover td{background:var(--cream)}
   /* 備料/成品 手機改卡片佈局 */
   .prep-table-wrap table, .fin-table-wrap table { display:none }
   .prep-cards, .fin-cards { display:flex; flex-direction:column; gap:10px }
+
+  /* 原料 手機改卡片佈局 */
+  .raw-table-wrap table { display:none }
+  .raw-cards { display:flex; flex-direction:column; gap:10px }
 }
 @media(max-width:420px){
   .main{padding:1rem .75rem 2rem}
@@ -1375,34 +1379,33 @@ window.renderRaw=()=>{
     el.innerHTML=`<div class="empty-state"><div class="empty-icon">🌾</div><p>${q||window._rawFilterLabel?'找不到符合的原料':'尚無原料，請新增'}</p></div>`
     return
   }
-  // 有文字搜尋時禁用排序（結果不完整），標籤篩選時仍可排序
   const canSort=!q
-  el.innerHTML=`<div class="table-wrap"><table>
+
+  const rows=list.map(r=>{
+    const cpg=unitCostPerG(r)
+    const costStr=r.unit==='個' ? `NT$ ${cpg.toFixed(2)} / 個` : `NT$ ${cpg.toFixed(4)} / g`
+    const labelsHtml=(r.labels||[]).map(lname=>{
+      const name=typeof lname==='string'?lname:lname.name
+      const meta=_allLabels.find(x=>x.name===name)
+      return `<span class="raw-label lc-${meta?meta.color:0}">${name}</span>`
+    }).join(' ')
+    return {r, cpg, costStr, labelsHtml}
+  })
+
+  // 桌機：表格
+  const tableHtml=`<div class="table-wrap raw-table-wrap"><table>
     <thead><tr>${canSort?'<th></th>':''}<th>品名</th><th>標籤</th><th>進貨量</th><th>進貨價格</th><th>每g單位成本</th><th>建立時間</th><th></th></tr></thead>
-    <tbody id="raw-tbody">${list.map(r=>{
-      const cpg=unitCostPerG(r)
-      // 全部換算為每g成本
-      const costStr=r.unit==='個'
-        ? `NT$ ${cpg.toFixed(2)} / 個`
-        : `NT$ ${cpg.toFixed(4)} / g`
-      const labelsHtml=(r.labels||[]).map(lname=>{
-        const name=typeof lname==='string'?lname:lname.name
-        const meta=_allLabels.find(x=>x.name===name)
-        const color=meta?meta.color:0
-        return `<span class="raw-label lc-${color}">${name}</span>`
-      }).join(' ')
-      return `<tr data-id="${r.id}" class="raw-row"
+    <tbody id="raw-tbody">${rows.map(({r,costStr,labelsHtml})=>`
+      <tr data-id="${r.id}" class="raw-row"
         ${canSort?`draggable="true"
         ondragstart="onRawDragStart(event,'${r.id}')"
         ondragover="onRawDragOver(event)"
         ondrop="onRawDrop(event,'${r.id}')"
         ondragend="onRawDragEnd()"`:''}>
-        ${canSort?`<td class="td-drag">
-          <span class="drag-handle"
-            ontouchstart="onRawTouchStart(event,'${r.id}')"
-            ontouchmove="onRawTouchMove(event)"
-            ontouchend="onRawTouchEnd(event)">⠿</span>
-        </td>`:''}
+        ${canSort?`<td class="td-drag"><span class="drag-handle"
+          ontouchstart="onRawTouchStart(event,'${r.id}')"
+          ontouchmove="onRawTouchMove(event)"
+          ontouchend="onRawTouchEnd(event)">⠿</span></td>`:''}
         <td class="td-name">${r.name}</td>
         <td class="td-labels">${labelsHtml||'—'}</td>
         <td>${r.qty} ${badge(r.unit)}</td>
@@ -1413,9 +1416,31 @@ window.renderRaw=()=>{
           <button class="btn-icon btn-raw-edit" data-id="${r.id}" title="編輯">✎</button>
           <button class="btn-icon btn-del btn-raw-del" data-id="${r.id}" data-name="${r.name.replace(/"/g,'&quot;')}" title="刪除">⌫</button>
         </td>
-      </tr>`
-    }).join('')}</tbody>
+      </tr>`).join('')}</tbody>
   </table></div>`
+
+  // 手機：卡片
+  const cardsHtml=`<div class="raw-cards">${rows.map(({r,costStr,labelsHtml})=>`
+    <div class="item-card raw-row" data-id="${r.id}">
+      <div class="item-card-header">
+        ${canSort?`<span class="item-card-drag"
+          ontouchstart="onRawTouchStart(event,'${r.id}')"
+          ontouchmove="onRawTouchMove(event)"
+          ontouchend="onRawTouchEnd(event)">⠿</span>`:''}
+        <span class="item-card-name">${r.name}</span>
+        <div class="item-card-actions">
+          <button class="btn-icon btn-raw-edit" data-id="${r.id}">✎</button>
+          <button class="btn-icon btn-del btn-raw-del" data-id="${r.id}" data-name="${r.name.replace(/"/g,'&quot;')}">⌫</button>
+        </div>
+      </div>
+      ${labelsHtml?`<div class="item-card-labels">${labelsHtml}</div>`:''}
+      <div class="item-card-row"><span>進貨量</span><span>${r.qty} ${badge(r.unit)}</span></div>
+      <div class="item-card-row"><span>進貨價格</span><span>NT$ ${r.price?.toLocaleString()}</span></div>
+      <div class="item-card-row"><span>單位成本</span><span class="item-card-val-amber">${costStr}</span></div>
+      <div class="item-card-row"><span>建立時間</span><span style="font-size:12px;color:var(--text-hint)">${fmtTime(r.createdAt)}</span></div>
+    </div>`).join('')}</div>`
+
+  el.innerHTML=tableHtml+cardsHtml
 }
 
 // ===== 原料表格按鈕事件委派 =====
