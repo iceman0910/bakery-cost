@@ -104,6 +104,7 @@ input::placeholder{color:var(--text-hint)}
 .lf-btn:hover{border-color:var(--border-md);color:var(--text-pri)}
 .lf-btn.lf-on{border-color:currentColor;opacity:1;font-weight:600}
 .tags-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+#prep-tags,#fin-tags{flex-direction:column;align-items:stretch}
 .form-actions{display:flex;gap:8px;align-items:flex-end}
 .form-footer{display:flex;gap:8px;margin-top:1rem}
 
@@ -166,6 +167,11 @@ tr:hover td{background:var(--cream)}
 .td-ings-detail{min-width:160px}
 .ing-detail-row{display:flex;align-items:center;gap:6px;margin:2px 0}
 .ing-cost{font-size:12px;color:var(--amber);font-family:'DM Mono',monospace;white-space:nowrap}
+.ing-edit-row{display:flex;align-items:center;gap:6px;background:var(--cream2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 10px;flex-wrap:nowrap}
+.ing-edit-name{font-size:13px;color:var(--brown-dk);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ing-edit-amt{height:28px;border:1px solid var(--border);border-radius:4px;padding:0 6px;font-size:13px;text-align:right;flex-shrink:0}
+.ing-edit-unit{font-size:12px;color:var(--text-sec);flex-shrink:0}
+.ing-chip-prep-label{background:var(--amber-bg);color:#7a4f18;border-radius:3px;padding:0 4px;font-size:11px}
 .btn-expand-ing{background:none;border:none;cursor:pointer;font-size:12px;color:var(--text-sec);padding:2px 0;white-space:nowrap;text-align:left}
 .btn-expand-ing:hover{color:var(--brown-md)}
 .ing-detail-panel{margin-top:6px}
@@ -1674,9 +1680,19 @@ window.addPrepIng=()=>{
 }
 window.removePrepIng=(idx)=>{ window._prepIngs.splice(idx,1); renderPrepTags(); updatePrepPreview() }
 function renderPrepTags(){
-  document.getElementById('prep-tags').innerHTML=window._prepIngs.map((i,idx)=>
-    `<span class="tag">${i.rawName} ${i.amount}g<button class="tag-remove" onclick="removePrepIng(${idx})">×</button></span>`
-  ).join('')
+  document.getElementById('prep-tags').innerHTML=window._prepIngs.map((i,idx)=>`
+    <div class="ing-edit-row">
+      <span class="ing-edit-name">${i.rawName}</span>
+      <input class="ing-edit-amt" type="number" value="${i.amount}" min="0"
+        oninput="updatePrepIngAmt(${idx},this.value)" style="width:80px">
+      <span class="ing-edit-unit">g</span>
+      <button class="tag-remove" onclick="removePrepIng(${idx})">×</button>
+    </div>`).join('')
+}
+window.updatePrepIngAmt=(idx,val)=>{
+  const amt=parseFloat(val)
+  if(!isNaN(amt)&&amt>0) window._prepIngs[idx].amount=amt
+  updatePrepPreview()
 }
 window.updatePrepPreview=()=>{
   const total=parseFloat(document.getElementById('f-prep-total').value)||0
@@ -1852,9 +1868,19 @@ window.addFinPrep=()=>{
 }
 window.removeFinIng=(idx)=>{ window._finIngs.splice(idx,1); renderFinTags(); updateFinPreview() }
 function renderFinTags(){
-  document.getElementById('fin-tags').innerHTML=window._finIngs.map((i,idx)=>
-    `<span class="tag">${i.type==='prep'?'[備料] ':''}${i.name} ${i.amount}g<button class="tag-remove" onclick="removeFinIng(${idx})">×</button></span>`
-  ).join('')
+  document.getElementById('fin-tags').innerHTML=window._finIngs.map((i,idx)=>`
+    <div class="ing-edit-row">
+      <span class="ing-edit-name">${i.type==='prep'?'<span class="ing-chip-prep-label">[備料]</span> ':''}${i.name}</span>
+      <input class="ing-edit-amt" type="number" value="${i.amount}" min="0"
+        oninput="updateFinIngAmt(${idx},this.value)" style="width:80px">
+      <span class="ing-edit-unit">g</span>
+      <button class="tag-remove" onclick="removeFinIng(${idx})">×</button>
+    </div>`).join('')
+}
+window.updateFinIngAmt=(idx,val)=>{
+  const amt=parseFloat(val)
+  if(!isNaN(amt)&&amt>0) window._finIngs[idx].amount=amt
+  updateFinPreview()
 }
 window.updateFinPreview=()=>{
   if(!window._finIngs.length){document.getElementById('fin-preview-row').classList.add('hidden');return}
