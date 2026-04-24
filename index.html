@@ -250,6 +250,9 @@ tr:hover td{background:var(--cream)}
 .filter-label{cursor:pointer;opacity:.6;transition:opacity .15s}
 .filter-label.on{opacity:1}
 
+/* 備料/成品/原料 卡片樣式（手機用，預設隱藏） */
+.raw-cards, .prep-cards, .fin-cards { display:none }
+
 /* Responsive */
 @media(max-width:680px){
   .logo-text{font-size:14px}
@@ -280,9 +283,6 @@ tr:hover td{background:var(--cream)}
   .g-raw>.form-actions{grid-column:auto}
   .ing-add-row{flex-wrap:wrap}
 }
-
-/* 備料/成品/原料 卡片樣式（手機用，預設隱藏） */
-.raw-cards, .prep-cards, .fin-cards { display:none }
 .item-card{
   background:#fff;
   border:1px solid var(--border);
