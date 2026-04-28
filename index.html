@@ -1466,8 +1466,7 @@ document.getElementById('prep-list').addEventListener('click', e=>{
   if(editBtn) editPrep(editBtn.dataset.id)
   if(delBtn) openConfirm(delBtn.dataset.name, ()=>delPrep(delBtn.dataset.id))
   if(expandBtn){
-    const id=expandBtn.dataset.cardId
-    const panel=document.getElementById('ing-card-'+id)
+    const panel=expandBtn.nextElementSibling
     if(panel){
       const open=panel.style.display==='none'
       panel.style.display=open?'block':'none'
@@ -1484,8 +1483,7 @@ document.getElementById('fin-list').addEventListener('click', e=>{
   if(editBtn) editFin(editBtn.dataset.id)
   if(delBtn) openConfirm(delBtn.dataset.name, ()=>delFin(delBtn.dataset.id))
   if(expandBtn){
-    const id=expandBtn.dataset.cardId
-    const panel=document.getElementById('fin-ing-'+id)||document.getElementById('fin-ing-card-'+id)
+    const panel=expandBtn.nextElementSibling
     if(panel){
       const open=panel.style.display==='none'
       panel.style.display=open?'block':'none'
@@ -1790,8 +1788,8 @@ window.renderPrep=()=>{
         <td class="td-name">${p.name}</td>
         <td class="td-labels">${labelsHtml||'—'}</td>
         <td>
-          <button class="btn-expand-ing" onclick="togglePrepIng('${p.id}',this)">▶ ${ingCount} 種成分</button>
-          <div class="ing-detail-panel" id="ing-${p.id}" style="display:none">${ings}</div>
+          <button class="btn-expand-ing btn-prep-expand" data-count="${ingCount}">▶ ${ingCount} 種成分</button>
+          <div class="ing-detail-panel" style="display:none">${ings}</div>
         </td>
         <td>${p.totalWeight}g</td>
         <td class="td-cost">NT$ ${cost.toFixed(1)}</td>
@@ -1818,10 +1816,8 @@ window.renderPrep=()=>{
       <div class="item-card-row"><span>總重量</span><span>${p.totalWeight}g</span></div>
       <div class="item-card-row"><span>食材成本</span><span class="item-card-val-amber">NT$ ${cost.toFixed(1)}</span></div>
       <div class="item-card-row"><span>每g成本</span><span class="item-card-val-amber">NT$ ${cpg.toFixed(4)}</span></div>
-      <div class="item-card-row" style="border-bottom:none">
-        <button class="btn-expand-ing btn-prep-expand" data-card-id="${p.id}" data-count="${ingCount}">▶ ${ingCount} 種成分</button>
-      </div>
-      <div id="ing-card-${p.id}" style="display:none;margin-top:4px">${ings}</div>
+      <button class="btn-expand-ing btn-prep-expand" data-count="${ingCount}" style="margin-top:8px">▶ ${ingCount} 種成分</button>
+      <div style="display:none;margin-top:4px">${ings}</div>
     </div>`).join('')}</div>`
 
   el.innerHTML=tableHtml+cardsHtml
@@ -1996,8 +1992,8 @@ window.renderFin=()=>{
         <td class="td-name">${f.name}</td>
         <td class="td-labels">${labelsHtml||'—'}</td>
         <td>
-          <button class="btn-expand-ing btn-fin-expand" data-card-id="${f.id}" data-count="${ingCount}">▶ ${ingCount} 種成分</button>
-          <div id="fin-ing-${f.id}" style="display:none;margin-top:4px">${ings}</div>
+          <button class="btn-expand-ing btn-fin-expand" data-count="${ingCount}">▶ ${ingCount} 種成分</button>
+          <div style="display:none;margin-top:4px">${ings}</div>
         </td>
         <td class="td-cost">NT$ ${cost.toFixed(1)}</td>
         <td>${f.salePrice?`NT$ ${f.salePrice}`:'—'}</td>
@@ -2026,10 +2022,8 @@ window.renderFin=()=>{
       <div class="item-card-row"><span>售價</span><span>${f.salePrice?`NT$ ${f.salePrice}`:'—'}</span></div>
       <div class="item-card-row"><span>毛利率</span><span>${gm!==null?`<span class="${isGood?'margin-good':'margin-bad'}">${gm.toFixed(1)}%</span>`:'—'}</span></div>
       <div class="item-card-row"><span>建議售價</span><span class="item-card-val-amber">${sug?`NT$ ${sug.toFixed(0)}`:'—'}</span></div>
-      <div class="item-card-row" style="border-bottom:none">
-        <button class="btn-expand-ing btn-fin-expand" data-card-id="${f.id}" data-count="${ingCount}">▶ ${ingCount} 種成分</button>
-      </div>
-      <div id="fin-ing-card-${f.id}" style="display:none;margin-top:4px">${ings}</div>
+      <button class="btn-expand-ing btn-fin-expand" data-count="${ingCount}" style="margin-top:8px">▶ ${ingCount} 種成分</button>
+      <div style="display:none;margin-top:4px">${ings}</div>
     </div>`}).join('')}</div>`
 
   el.innerHTML=tableHtml+cardsHtml
