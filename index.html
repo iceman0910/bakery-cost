@@ -1480,8 +1480,18 @@ document.getElementById('prep-list').addEventListener('click', e=>{
 document.getElementById('fin-list').addEventListener('click', e=>{
   const editBtn=e.target.closest('.btn-fin-edit')
   const delBtn=e.target.closest('.btn-fin-del')
+  const expandBtn=e.target.closest('.btn-fin-expand')
   if(editBtn) editFin(editBtn.dataset.id)
   if(delBtn) openConfirm(delBtn.dataset.name, ()=>delFin(delBtn.dataset.id))
+  if(expandBtn){
+    const id=expandBtn.dataset.cardId
+    const panel=document.getElementById('fin-ing-'+id)||document.getElementById('fin-ing-card-'+id)
+    if(panel){
+      const open=panel.style.display==='none'
+      panel.style.display=open?'block':'none'
+      expandBtn.textContent=open?'▼ 收起成分':`▶ ${expandBtn.dataset.count} 種成分`
+    }
+  }
 })
 
 // ===== 拖曳排序（桌機 mouse drag） =====
@@ -1943,7 +1953,20 @@ window.renderFin=()=>{
     const gm=f.salePrice>0?((f.salePrice-cost)/f.salePrice*100):null
     const sug=cost>0&&(f.targetMargin||60)<100?cost/(1-(f.targetMargin||60)/100):null
     const isGood=gm!==null&&gm>=(f.targetMargin||60)
-    const ings=(f.ingredients||[]).map(i=>`<span class="ing-chip ${i.type==='prep'?'ing-chip-prep':''}">${i.name} ${i.amount}g</span>`).join('')
+    const ings=(f.ingredients||[]).map(i=>{
+      let ingCost=0
+      if(i.type==='raw'){
+        const raw=window._raw.find(r=>r.id===i.refId)
+        if(raw) ingCost=unitCostPerG(raw)*i.amount
+      } else if(i.type==='prep'){
+        const prep=window._prep.find(p=>p.id===i.refId)
+        if(prep) ingCost=calcPrepCostPerG(prep)*i.amount
+      }
+      return `<div class="ing-detail-row">
+        <span class="ing-chip ${i.type==='prep'?'ing-chip-prep':''}">${i.name} ${i.amount}g</span>
+        <span class="ing-cost">NT$ ${ingCost.toFixed(1)}</span>
+      </div>`
+    }).join('')
     const labelsHtml=(f.labels||[]).map(lname=>{
       const name=typeof lname==='string'?lname:lname.name
       const meta=allFinLabels.find(x=>x.name===name)
@@ -1963,15 +1986,19 @@ window.renderFin=()=>{
 
   const tableHtml=`<div class="table-wrap fin-table-wrap"><table>
     <thead><tr>${canSort?'<th></th>':''}<th>成品名稱</th><th>標籤</th><th>成分</th><th>食材成本</th><th>售價</th><th>毛利率</th><th>建議售價</th><th></th></tr></thead>
-    <tbody>${rows.map(({f,cost,gm,sug,isGood,ings,labelsHtml,dragAttrs})=>`
-      <tr data-id="${f.id}" class="sort-row" ${dragAttrs}>
+    <tbody>${rows.map(({f,cost,gm,sug,isGood,ings,labelsHtml,dragAttrs})=>{
+      const ingCount=(f.ingredients||[]).length
+      return `<tr data-id="${f.id}" class="sort-row" ${dragAttrs}>
         ${canSort?`<td class="td-drag"><span class="drag-handle"
           ontouchstart="onSortTouchStart(event,'${f.id}','fin')"
           ontouchmove="onSortTouchMove(event)"
           ontouchend="onSortTouchEnd(event,'fin')">⠿</span></td>`:''}
         <td class="td-name">${f.name}</td>
         <td class="td-labels">${labelsHtml||'—'}</td>
-        <td class="td-ings">${ings||'—'}</td>
+        <td>
+          <button class="btn-expand-ing btn-fin-expand" data-card-id="${f.id}" data-count="${ingCount}">▶ ${ingCount} 種成分</button>
+          <div id="fin-ing-${f.id}" style="display:none;margin-top:4px">${ings}</div>
+        </td>
         <td class="td-cost">NT$ ${cost.toFixed(1)}</td>
         <td>${f.salePrice?`NT$ ${f.salePrice}`:'—'}</td>
         <td>${gm!==null?`<span class="${isGood?'margin-good':'margin-bad'}">${gm.toFixed(1)}%</span>`:'—'}</td>
@@ -1980,11 +2007,12 @@ window.renderFin=()=>{
           <button class="btn-icon btn-fin-edit" data-id="${f.id}">✎</button>
           <button class="btn-icon btn-del btn-fin-del" data-id="${f.id}" data-name="${f.name.replace(/"/g,'&quot;')}">⌫</button>
         </td>
-      </tr>`).join('')}</tbody>
+      </tr>`}).join('')}</tbody>
   </table></div>`
 
-  const cardsHtml=`<div class="fin-cards">${rows.map(({f,cost,gm,sug,isGood,ings,labelsHtml,touchHandle})=>`
-    <div class="item-card sort-row" data-id="${f.id}">
+  const cardsHtml=`<div class="fin-cards">${rows.map(({f,cost,gm,sug,isGood,ings,labelsHtml,touchHandle})=>{
+    const ingCount=(f.ingredients||[]).length
+    return `<div class="item-card sort-row" data-id="${f.id}">
       <div class="item-card-header">
         ${touchHandle}
         <span class="item-card-name">${f.name}</span>
@@ -1998,8 +2026,11 @@ window.renderFin=()=>{
       <div class="item-card-row"><span>售價</span><span>${f.salePrice?`NT$ ${f.salePrice}`:'—'}</span></div>
       <div class="item-card-row"><span>毛利率</span><span>${gm!==null?`<span class="${isGood?'margin-good':'margin-bad'}">${gm.toFixed(1)}%</span>`:'—'}</span></div>
       <div class="item-card-row"><span>建議售價</span><span class="item-card-val-amber">${sug?`NT$ ${sug.toFixed(0)}`:'—'}</span></div>
-      ${ings?`<div class="item-card-row" style="border-bottom:none;flex-wrap:wrap;gap:4px"><span style="width:100%;color:var(--text-hint);font-size:12px;margin-bottom:2px">成分</span>${ings}</div>`:''}
-    </div>`).join('')}</div>`
+      <div class="item-card-row" style="border-bottom:none">
+        <button class="btn-expand-ing btn-fin-expand" data-card-id="${f.id}" data-count="${ingCount}">▶ ${ingCount} 種成分</button>
+      </div>
+      <div id="fin-ing-card-${f.id}" style="display:none;margin-top:4px">${ings}</div>
+    </div>`}).join('')}</div>`
 
   el.innerHTML=tableHtml+cardsHtml
   finLS.renderFilter()
