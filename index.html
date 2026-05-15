@@ -664,7 +664,7 @@ import {
   deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'
 
 const firebaseConfig = {
@@ -683,11 +683,14 @@ const provider = new GoogleAuthProvider()
 
 // ===== 登入登出 =====
 window.signInWithGoogle = async () => {
-  try { await signInWithPopup(auth, provider) } catch(e) { console.error(e) }
+  try { await signInWithRedirect(auth, provider) } catch(e) { console.error(e) }
 }
 window.signOutUser = async () => {
   await signOut(auth)
 }
+
+// 處理 redirect 回來後的結果
+getRedirectResult(auth).catch(e => console.error('redirect error', e))
 
 // Firestore listeners（只在登入後啟動）
 let _unsubRaw=null, _unsubPrep=null, _unsubFin=null
