@@ -43,7 +43,11 @@ body{font-family:'Noto Sans TC',system-ui,sans-serif;background:var(--cream);col
 .page-desc{font-size:13px;color:var(--text-sec);margin-top:2px}
 
 /* 原料頁面 sticky 表單 */
-.raw-sticky{
+.user-info{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.user-name{font-size:13px;color:rgba(255,255,255,.7);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn-signout{height:30px;padding:0 12px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;cursor:pointer;transition:all .15s}
+.btn-signout:hover{background:rgba(255,255,255,.2);color:#fff}
+@media(max-width:680px){.user-name{display:none}}
   position:sticky;
   top:56px;
   z-index:90;
@@ -305,6 +309,22 @@ tr:hover td{background:var(--cream)}
 </head>
 <body>
 
+<!-- 登入畫面 -->
+<div id="login-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;background:var(--cream)">
+  <div style="text-align:center;padding:2rem">
+    <div style="font-size:56px;margin-bottom:1rem">🥐</div>
+    <h1 style="font-size:22px;font-weight:600;color:var(--brown-dk);margin-bottom:6px">烘焙成本計算</h1>
+    <p style="font-size:14px;color:var(--text-sec);margin-bottom:2rem">請登入以繼續</p>
+    <button onclick="signInWithGoogle()" style="display:inline-flex;align-items:center;gap:10px;padding:12px 24px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-md);font-size:15px;font-family:inherit;cursor:pointer;color:var(--text-pri);box-shadow:var(--shadow-md)">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20">
+      使用 Google 帳號登入
+    </button>
+  </div>
+</div>
+
+<!-- 主程式 -->
+<div id="app-screen" style="display:none">
+
 <header class="header">
   <div class="header-inner">
     <div class="logo">
@@ -322,6 +342,11 @@ tr:hover td{background:var(--cream)}
         <span class="nav-icon">🍞</span><span class="nav-label">成品成本</span>
       </button>
     </nav>
+    <div class="user-info">
+      <img id="user-avatar" src="" style="display:none;width:28px;height:28px;border-radius:50%;object-fit:cover">
+      <span id="user-name" class="user-name"></span>
+      <button class="btn-signout" onclick="signOutUser()" title="登出">登出</button>
+    </div>
   </div>
 </header>
 
@@ -638,6 +663,9 @@ import {
   getFirestore, collection, onSnapshot, addDoc, updateDoc,
   deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js'
 
 const firebaseConfig = {
   apiKey: "AIzaSyBdohEN4PBAj3-Wcmsae4pwZNUrCyuQw04",
@@ -650,8 +678,82 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig)
 const db = getFirestore(app)
+const auth = getAuth(app)
+const provider = new GoogleAuthProvider()
 
-// ===== State =====
+// ===== 登入登出 =====
+window.signInWithGoogle = async () => {
+  try { await signInWithPopup(auth, provider) } catch(e) { console.error(e) }
+}
+window.signOutUser = async () => {
+  await signOut(auth)
+}
+
+// Firestore listeners（只在登入後啟動）
+let _unsubRaw=null, _unsubPrep=null, _unsubFin=null
+function startListeners(){
+  const qRaw  = query(collection(db,'rawIngredients'), orderBy('createdAt','asc'))
+  const qPrep = query(collection(db,'prepItems'),      orderBy('createdAt','asc'))
+  const qFin  = query(collection(db,'finishedProducts'),orderBy('createdAt','asc'))
+
+  _unsubRaw=onSnapshot(qRaw, snap => {
+    let docs=snap.docs.map(d=>({id:d.id,...d.data()}))
+    docs.sort((a,b)=>{
+      const ha=a.sortOrder!=null, hb=b.sortOrder!=null
+      if(ha&&hb) return a.sortOrder-b.sortOrder
+      if(ha) return -1; if(hb) return 1
+      return (a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0)
+    })
+    window._raw=docs; renderRaw(); renderFilterLabels(); updateSelects()
+  })
+  _unsubPrep=onSnapshot(qPrep, snap => {
+    let docs=snap.docs.map(d=>({id:d.id,...d.data()}))
+    docs.sort((a,b)=>{
+      const ha=a.sortOrder!=null, hb=b.sortOrder!=null
+      if(ha&&hb) return a.sortOrder-b.sortOrder
+      if(ha) return -1; if(hb) return 1
+      return (a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0)
+    })
+    window._prep=docs; renderPrep(); updateSelects()
+  })
+  _unsubFin=onSnapshot(qFin, snap => {
+    let docs=snap.docs.map(d=>({id:d.id,...d.data()}))
+    docs.sort((a,b)=>{
+      const ha=a.sortOrder!=null, hb=b.sortOrder!=null
+      if(ha&&hb) return a.sortOrder-b.sortOrder
+      if(ha) return -1; if(hb) return 1
+      return (a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0)
+    })
+    window._fin=docs; renderFin()
+  })
+  prepLS.load().then(()=>updateSelects()); finLS.load(); loadLabels()
+}
+function stopListeners(){
+  if(_unsubRaw) _unsubRaw()
+  if(_unsubPrep) _unsubPrep()
+  if(_unsubFin) _unsubFin()
+}
+
+// 監聽登入狀態
+onAuthStateChanged(auth, user => {
+  const loginScreen=document.getElementById('login-screen')
+  const appScreen=document.getElementById('app-screen')
+  if(user){
+    // 已登入
+    loginScreen.style.display='none'
+    appScreen.style.display='block'
+    document.getElementById('user-name').textContent=user.displayName||user.email
+    document.getElementById('user-avatar').src=user.photoURL||''
+    document.getElementById('user-avatar').style.display=user.photoURL?'block':'none'
+    startListeners()
+  } else {
+    // 未登入
+    loginScreen.style.display='flex'
+    appScreen.style.display='none'
+    stopListeners()
+    window._raw=[]; window._prep=[]; window._fin=[]
+  }
+})
 window._raw = []
 window._prep = []
 window._fin = []
@@ -711,8 +813,6 @@ async function saveLabelsToFirestore(){
     await setDoc(doc(db,'settings','labels'), {list: _allLabels})
   } catch(e){ console.error('儲存標籤失敗',e) }
 }
-
-loadLabels()
 
 // 外層標籤列：顯示所有標籤，已選的高亮，點一下切換選取
 function renderSelectedLabels(){
@@ -1117,7 +1217,7 @@ const finLS=createLabelSystem({
   leListId:'fin-le-list', leNewInputId:'fin-le-new-input',
   renderList:()=>renderFin(), submitSave:null, collectionName:'finishedProducts'
 })
-prepLS.load().then(()=>updateSelects()); finLS.load()
+// prepLS finLS 在 startListeners 裡呼叫
 
 window.openPrepLabelEditor=()=>prepLS.openEditor()
 window.closePrepLabelEditor=()=>prepLS.closeEditor()
@@ -1151,48 +1251,6 @@ function renderFilterLabels(){
     }).join('')
 }
 window.setFilterLabel=(name)=>{ window._rawFilterLabel=name; renderFilterLabels(); renderRaw() }
-
-// ===== Firestore Listeners =====
-const qRaw  = query(collection(db,'rawIngredients'), orderBy('createdAt','asc'))
-const qPrep = query(collection(db,'prepItems'),      orderBy('createdAt','asc'))
-const qFin  = query(collection(db,'finishedProducts'),orderBy('createdAt','asc'))
-
-onSnapshot(qRaw, snap => {
-  let docs=snap.docs.map(d=>({id:d.id,...d.data()}))
-  // 有 sortOrder 的照 sortOrder 排，沒有的照 createdAt 排在後面
-  docs.sort((a,b)=>{
-    const ha=a.sortOrder!=null, hb=b.sortOrder!=null
-    if(ha&&hb) return a.sortOrder-b.sortOrder
-    if(ha) return -1
-    if(hb) return 1
-    // 兩個都沒有 sortOrder，用 createdAt
-    const ta=a.createdAt?.toMillis?.()||0
-    const tb=b.createdAt?.toMillis?.()||0
-    return ta-tb
-  })
-  window._raw=docs
-  renderRaw(); renderFilterLabels(); updateSelects()
-})
-onSnapshot(qPrep, snap => {
-  let docs=snap.docs.map(d=>({id:d.id,...d.data()}))
-  docs.sort((a,b)=>{
-    const ha=a.sortOrder!=null, hb=b.sortOrder!=null
-    if(ha&&hb) return a.sortOrder-b.sortOrder
-    if(ha) return -1; if(hb) return 1
-    return (a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0)
-  })
-  window._prep=docs; renderPrep(); updateSelects()
-})
-onSnapshot(qFin, snap => {
-  let docs=snap.docs.map(d=>({id:d.id,...d.data()}))
-  docs.sort((a,b)=>{
-    const ha=a.sortOrder!=null, hb=b.sortOrder!=null
-    if(ha&&hb) return a.sortOrder-b.sortOrder
-    if(ha) return -1; if(hb) return 1
-    return (a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0)
-  })
-  window._fin=docs; renderFin()
-})
 
 // ===== Calc =====
 function unitCostPerG(raw){
@@ -2093,6 +2151,8 @@ function hideErr(wrapId,msgId){
   document.getElementById(wrapId).classList.remove('err')
   document.getElementById(msgId).classList.add('hidden')
 }
+
+</div><!-- end app-screen -->
 
 </script>
 </body>
